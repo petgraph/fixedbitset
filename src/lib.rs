@@ -65,20 +65,26 @@ impl FixedBitSet
     #[inline]
     pub fn insert(&mut self, bit: usize)
     {
+        assert!(bit < self.length);
         let (block, i) = div_rem(bit, BITS);
-        self.data[block] |= 1 << i;
+        unsafe {
+            *self.data.get_unchecked_mut(block) |= 1 << i;
+        }
     }
 
     /// **Panics** if **bit** is out of bounds.
     #[inline]
     pub fn set(&mut self, bit: usize, enabled: bool)
     {
+        assert!(bit < self.length);
         let (block, i) = div_rem(bit, BITS);
-        let elt = &mut self.data[block];
-        if enabled {
-            *elt |= 1 << i;
-        } else {
-            *elt &= !(1 << i);
+        unsafe {
+            let elt = self.data.get_unchecked_mut(block);
+            if enabled {
+                *elt |= 1 << i;
+            } else {
+                *elt &= !(1 << i);
+            }
         }
     }
 }
