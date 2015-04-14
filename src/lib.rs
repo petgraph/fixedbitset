@@ -1,3 +1,7 @@
+use std::ops::Index;
+
+static TRUE: bool = true;
+static FALSE: bool = false;
 
 const BITS: usize = 32;
 type Block = u32;
@@ -100,6 +104,23 @@ impl Clone for FixedBitSet
     }
 }
 
+impl Index<usize> for FixedBitSet
+{
+    type Output = bool;
+
+    /// Return **true** if the bit is enabled in the bitset,
+    /// or **false** otherwise.
+    #[inline]
+    fn index(&self, bit: usize) -> &bool
+    {
+        if self.contains(bit) {
+            &TRUE
+        } else {
+            &FALSE
+        }
+    }
+}
+
 #[test]
 fn it_works() {
     let N = 50;
@@ -121,10 +142,8 @@ fn it_works() {
     assert!(fb.contains(12));
     assert!(fb.contains(N-1));
     for i in 0..N {
-        if i == 10 || i == 12 || i == N - 1 {
-            continue;
-        }
-        assert!(!fb.contains(i));
+        let contain = i == 10 || i == 12 || i == N - 1;
+        assert_eq!(contain, fb[i]);
     }
 
     fb.clear();
