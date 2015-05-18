@@ -1,10 +1,10 @@
 [package]
 name = "fixedbitset"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["bluss"]
 license = "MIT/Apache-2.0"
 
-description = "Simple BitSet type."
+description = "FixedBitSet is a simple fixed size set of bits."
 documentation = "http://bluss.github.io/petulant-avenger-graphlibrary/target/doc/fixedbitset/"
 repository = "https://github.com/bluss/fixedbitset"
 
