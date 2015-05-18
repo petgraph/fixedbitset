@@ -1,3 +1,5 @@
+//! **FixedBitSet** is a simple fixed size set of bits.
+
 use std::ops::Index;
 
 static TRUE: bool = true;
@@ -12,6 +14,8 @@ fn div_rem(x: usize, d: usize) -> (usize, usize)
     (x / d, x % d)
 }
 
+/// **FixedBitSet** is a simple fixed size set of bits that can
+/// be enabled (1 / **true**) or disabled (0 / **false**).
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FixedBitSet {
     data: Box<[Block]>,
@@ -40,7 +44,8 @@ impl FixedBitSet
         }
     }
 
-    /// Return the length of the **FixedBitSet**.
+    #[inline]
+    /// Return the length of the **FixedBitSet** in bits.
     pub fn len(&self) -> usize { self.length }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -57,6 +62,7 @@ impl FixedBitSet
         }
     }
 
+    /// Clear all bits.
     #[inline]
     pub fn clear(&mut self)
     {
@@ -104,12 +110,12 @@ impl Clone for FixedBitSet
     }
 }
 
+/// Return **true** if the bit is enabled in the bitset,
+/// or **false** otherwise.
 impl Index<usize> for FixedBitSet
 {
     type Output = bool;
 
-    /// Return **true** if the bit is enabled in the bitset,
-    /// or **false** otherwise.
     #[inline]
     fn index(&self, bit: usize) -> &bool
     {
@@ -123,7 +129,7 @@ impl Index<usize> for FixedBitSet
 
 #[test]
 fn it_works() {
-    let N = 50;
+    const N: usize = 50;
     let mut fb = FixedBitSet::with_capacity(N);
     println!("{:?}", fb);
 
