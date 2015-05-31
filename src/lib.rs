@@ -97,6 +97,21 @@ impl FixedBitSet
             }
         }
     }
+
+    /// View the bitset as a slice of `u32` blocks
+    #[inline]
+    pub fn as_slice(&self) -> &[u32]
+    {
+        &self.data
+    }
+
+    /// View the bitset as a mutable slice of `u32` blocks. Writing past the bitlength in the last
+    /// will cause `contains` to return potentially incorrect results for bits past the bitlength.
+    #[inline]
+    pub fn as_mut_slice(&mut self) -> &mut [u32]
+    {
+        &mut self.data
+    }
 }
 
 impl Clone for FixedBitSet
