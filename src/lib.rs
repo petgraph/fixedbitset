@@ -18,7 +18,7 @@ fn div_rem(x: usize, d: usize) -> (usize, usize)
 /// be enabled (1 / **true**) or disabled (0 / **false**).
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FixedBitSet {
-    data: Box<[Block]>,
+    data: Vec<Block>,
     /// length in bits
     length: usize,
 }
@@ -39,8 +39,24 @@ impl FixedBitSet
             }
         }
         FixedBitSet {
-            data: data.into_boxed_slice(),
+            data: data,
             length: bits,
+        }
+    }
+    
+    /// Grow capacity to **bits**, all new bits initialized to zero
+    pub fn grow(&mut self, bits: usize) {
+        let (mut cur_blocks, rem) = div_rem(self.length, BITS);
+        cur_blocks += (rem > 0) as usize;
+
+        let (mut blocks, rem) = div_rem(bits, BITS);
+        blocks += (rem > 0) as usize;
+        if bits > self.length {
+            self.length = bits;
+            self.data.reserve(blocks - cur_blocks);
+            for _ in 0..blocks - cur_blocks {
+                self.data.push(0);
+            }
         }
     }
 
@@ -119,7 +135,7 @@ impl Clone for FixedBitSet
     fn clone(&self) -> Self
     {
         FixedBitSet {
-            data: self.data.to_vec().into_boxed_slice(),
+            data: self.data.clone(),
             length: self.length,
         }
     }
@@ -168,4 +184,20 @@ fn it_works() {
     }
 
     fb.clear();
+}
+
+#[test]
+fn grow() {
+    let mut fb = FixedBitSet::with_capacity(48);
+    for i in 0..fb.len() {
+        fb.set(i, true);
+    }
+
+    let old_len = fb.len();
+    fb.grow(72);
+    for j in 0..fb.len() {
+        assert_eq!(fb.contains(j), j < old_len);
+    }
+    fb.set(64, true);
+    assert!(fb.contains(64));
 }
