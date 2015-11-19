@@ -31,15 +31,8 @@ impl FixedBitSet
     {
         let (mut blocks, rem) = div_rem(bits, BITS);
         blocks += (rem > 0) as usize;
-        let mut data = Vec::with_capacity(blocks);
-        unsafe {
-            data.set_len(blocks);
-            for elt in &mut data {
-                *elt = 0;
-            }
-        }
         FixedBitSet {
-            data: data,
+            data: vec![0; blocks],
             length: bits,
         }
     }
