@@ -107,6 +107,27 @@ impl FixedBitSet
         }
     }
 
+    /// Copies boolean value from specified bit to the specified bit.
+    ///
+    /// **Panics** if either **from** or **to** is out of bounds.
+    #[inline]
+    pub fn copy_bit(&mut self, from: usize, to: usize)
+    {
+        assert!(from < self.length);
+        assert!(to < self.length);
+        let (from_block, f) = div_rem(from, BITS);
+        let (to_block, t) = div_rem(to, BITS);
+        unsafe {
+            let enabled = (self.data.get_unchecked(from_block) & 1 << f) != 0;
+            let to_elt = self.data.get_unchecked_mut(to_block);
+            if enabled {
+                *to_elt |= 1 << t;
+            } else {
+                *to_elt &= !(1 << t);
+            }
+        }
+    }
+
     /// View the bitset as a slice of `u32` blocks
     #[inline]
     pub fn as_slice(&self) -> &[u32]
@@ -193,4 +214,19 @@ fn grow() {
     }
     fb.set(64, true);
     assert!(fb.contains(64));
+}
+
+#[test]
+fn copy_bit() {
+    let mut fb = FixedBitSet::with_capacity(48);
+    for i in 0..fb.len() {
+        fb.set(i, true);
+    }
+    fb.set(42, false);
+    fb.copy_bit(42, 2);
+    assert!(!fb.contains(42));
+    assert!(!fb.contains(2));
+    assert!(fb.contains(1));
+    fb.copy_bit(1, 42);
+    assert!(fb.contains(42));
 }
