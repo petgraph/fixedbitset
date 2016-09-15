@@ -136,6 +136,9 @@ impl Clone for FixedBitSet
 
 /// Return **true** if the bit is enabled in the bitset,
 /// or **false** otherwise.
+///
+/// Note: bits outside the capacity are always disabled, and thus
+/// indexing a FixedBitSet will not panic.
 impl Index<usize> for FixedBitSet
 {
     type Output = bool;
