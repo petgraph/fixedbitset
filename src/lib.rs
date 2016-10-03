@@ -16,7 +16,7 @@ fn div_rem(x: usize, d: usize) -> (usize, usize)
 
 /// **FixedBitSet** is a simple fixed size set of bits that can
 /// be enabled (1 / **true**) or disabled (0 / **false**).
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct FixedBitSet {
     data: Vec<Block>,
     /// length in bits
@@ -232,4 +232,10 @@ fn copy_bit() {
     assert!(fb.contains(1));
     fb.copy_bit(1, 42);
     assert!(fb.contains(42));
+}
+
+#[test]
+fn default() {
+    let fb = FixedBitSet::default();
+    assert_eq!(fb.len(), 0);
 }
