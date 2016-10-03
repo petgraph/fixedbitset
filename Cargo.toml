@@ -1,11 +1,11 @@
 [package]
 name = "fixedbitset"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["bluss"]
 license = "MIT/Apache-2.0"
 
 description = "FixedBitSet is a simple bitset collection"
-documentation = "https://bluss.github.io/petgraph/doc/fixedbitset/"
+documentation = "https://docs.rs/fixedbitset/"
 repository = "https://github.com/bluss/fixedbitset"
 
 keywords = ["container", "data-structure", "bitvec", "bitset"]

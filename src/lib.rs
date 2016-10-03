@@ -1,4 +1,5 @@
 //! **FixedBitSet** is a simple fixed size set of bits.
+#![doc(html_root_url="https://docs.rs/fixedbitset/0.1/")]
 
 use std::ops::Index;
 
