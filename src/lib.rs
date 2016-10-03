@@ -109,16 +109,15 @@ impl FixedBitSet
 
     /// Copies boolean value from specified bit to the specified bit.
     ///
-    /// **Panics** if either **from** or **to** is out of bounds.
+    /// **Panics** if **to** is out of bounds.
     #[inline]
     pub fn copy_bit(&mut self, from: usize, to: usize)
     {
         assert!(from < self.length);
         assert!(to < self.length);
-        let (from_block, f) = div_rem(from, BITS);
         let (to_block, t) = div_rem(to, BITS);
+        let enabled = self.contains(from);
         unsafe {
-            let enabled = (self.data.get_unchecked(from_block) & 1 << f) != 0;
             let to_elt = self.data.get_unchecked_mut(to_block);
             if enabled {
                 *to_elt |= 1 << t;
