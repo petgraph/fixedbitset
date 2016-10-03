@@ -62,6 +62,8 @@ impl FixedBitSet
     /// **false** otherwise.
     ///
     /// Note: bits outside the capacity are always disabled.
+    ///
+    /// Note: Also available with index syntax: `bitset[bit]`.
     #[inline]
     pub fn contains(&self, bit: usize) -> bool
     {
