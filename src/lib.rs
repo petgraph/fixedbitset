@@ -40,17 +40,11 @@ impl FixedBitSet
     
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
-        let (mut cur_blocks, rem) = div_rem(self.length, BITS);
-        cur_blocks += (rem > 0) as usize;
-
         let (mut blocks, rem) = div_rem(bits, BITS);
         blocks += (rem > 0) as usize;
         if bits > self.length {
             self.length = bits;
-            self.data.reserve(blocks - cur_blocks);
-            for _ in 0..blocks - cur_blocks {
-                self.data.push(0);
-            }
+            self.data.resize(blocks, 0);
         }
     }
 
