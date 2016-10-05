@@ -128,7 +128,6 @@ impl FixedBitSet
     #[inline]
     pub fn copy_bit(&mut self, from: usize, to: usize)
     {
-        assert!(from < self.length);
         assert!(to < self.length);
         let (to_block, t) = div_rem(to, BITS);
         let enabled = self.contains(from);
@@ -246,6 +245,8 @@ fn copy_bit() {
     assert!(fb.contains(1));
     fb.copy_bit(1, 42);
     assert!(fb.contains(42));
+    fb.copy_bit(1024, 42);
+    assert!(!fb[42]);
 }
 
 #[test]
