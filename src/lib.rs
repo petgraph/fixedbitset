@@ -83,6 +83,8 @@ impl FixedBitSet
         }
     }
 
+    /// Enable `bit`.
+    ///
     /// **Panics** if **bit** is out of bounds.
     #[inline]
     pub fn insert(&mut self, bit: usize)
@@ -91,6 +93,22 @@ impl FixedBitSet
         let (block, i) = div_rem(bit, BITS);
         unsafe {
             *self.data.get_unchecked_mut(block) |= 1 << i;
+        }
+    }
+
+    /// Enable `bit`, and return its previous value.
+    ///
+    /// **Panics** if **bit** is out of bounds.
+    #[inline]
+    pub fn put(&mut self, bit: usize) -> bool
+    {
+        assert!(bit < self.length);
+        let (block, i) = div_rem(bit, BITS);
+        unsafe {
+            let word = self.data.get_unchecked_mut(block);
+            let prev = *word & (1 << i) != 0;
+            *word |= 1 << i;
+            prev
         }
     }
 
