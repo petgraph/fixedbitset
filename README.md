@@ -3,6 +3,8 @@ Rust simple BitSet type
 
 ## Recent Changes
 
+- 0.1.3
+  + Add method `.put()` to enable a bit and return previous value
 - 0.1.2
   + Add method `copy_bit` (by fuine)
   + impl Default
