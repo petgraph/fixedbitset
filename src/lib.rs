@@ -1,7 +1,10 @@
 //! **FixedBitSet** is a simple fixed size set of bits.
 #![doc(html_root_url="https://docs.rs/fixedbitset/0.1/")]
 
+mod range;
+
 use std::ops::Index;
+pub use range::IndexRange;
 
 static TRUE: bool = true;
 static FALSE: bool = false;
@@ -141,6 +144,28 @@ impl FixedBitSet
         }
     }
 
+    pub fn count_ones<T: IndexRange>(&self, range: T) -> usize
+    {
+        let start = range.start().unwrap_or(0);
+        let end = range.end().unwrap_or(self.length - 1);
+        // range makes sure that range.start <= range.end
+        assert!(end < self.length);
+        let (first_block, first_rem) = div_rem(start, BITS);
+        let (last_block, last_rem) = div_rem(end, BITS);
+        let mut sum = 0usize;
+        // we can't skip first_block in case first_block == last_block
+        for block in &self.data[first_block..last_block] {
+            sum += block.count_ones() as usize;
+        }
+        // calculate masks; deals with overflowing shr problem when x == 0
+        let mask = |x| if x != 0 { Block::max_value() >> (BITS - x) } else { 0 };
+        let mask_first_block: Block = mask(first_rem);
+        let mask_last_block: Block = mask(last_rem);
+        sum += (self.data[last_block] & mask_last_block).count_ones() as usize;
+        sum -= (self.data[first_block] & mask_first_block).count_ones() as usize;
+        sum
+    }
+
     /// View the bitset as a slice of `u32` blocks
     #[inline]
     pub fn as_slice(&self) -> &[u32]
@@ -247,6 +272,32 @@ fn copy_bit() {
     assert!(fb.contains(42));
     fb.copy_bit(1024, 42);
     assert!(!fb[42]);
+}
+
+#[test]
+fn count_ones() {
+    let mut fb = FixedBitSet::with_capacity(100);
+    fb.set(11, true);
+    fb.set(12, true);
+    fb.set(7, true);
+    fb.set(35, true);
+    fb.set(40, true);
+    fb.set(77, true);
+    fb.set(95, true);
+    fb.set(50, true);
+    assert_eq!(fb.count_ones(..7), 0);
+    assert_eq!(fb.count_ones(..8), 1);
+    assert_eq!(fb.count_ones(..11), 1);
+    assert_eq!(fb.count_ones(..12), 2);
+    assert_eq!(fb.count_ones(..13), 3);
+    assert_eq!(fb.count_ones(..35), 3);
+    assert_eq!(fb.count_ones(..36), 4);
+    assert_eq!(fb.count_ones(..40), 4);
+    assert_eq!(fb.count_ones(..41), 5);
+    assert_eq!(fb.count_ones(50..), 3);
+    assert_eq!(fb.count_ones(70..95), 1);
+    assert_eq!(fb.count_ones(70..96), 2);
+    assert_eq!(fb.count_ones(..), 8);
 }
 
 #[test]
