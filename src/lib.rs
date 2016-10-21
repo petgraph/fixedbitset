@@ -148,8 +148,7 @@ impl FixedBitSet
     {
         let start = range.start().unwrap_or(0);
         let end = range.end().unwrap_or(self.length);
-        // range makes sure that range.start <= range.end
-        assert!(end <= self.length);
+        assert!(start <= end && end <= self.length);
         let (first_block, first_rem) = div_rem(start, BITS);
         let (last_block, last_rem) = div_rem(end, BITS);
         let mut sum = 0usize;
@@ -300,6 +299,23 @@ fn count_ones() {
     assert_eq!(fb.count_ones(70..96), 2);
     assert_eq!(fb.count_ones(70..99), 2);
     assert_eq!(fb.count_ones(..), 9);
+    assert_eq!(fb.count_ones(0..100), 9);
+    assert_eq!(fb.count_ones(0..0), 0);
+    assert_eq!(fb.count_ones(100..100), 0);
+}
+
+#[should_panic]
+#[test]
+fn count_ones_oob() {
+    let fb = FixedBitSet::with_capacity(100);
+    fb.count_ones(90..101);
+}
+
+#[should_panic]
+#[test]
+fn count_ones_negative_range() {
+    let fb = FixedBitSet::with_capacity(100);
+    fb.count_ones(90..80);
 }
 
 #[test]
