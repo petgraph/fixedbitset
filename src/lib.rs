@@ -147,9 +147,9 @@ impl FixedBitSet
     pub fn count_ones<T: IndexRange>(&self, range: T) -> usize
     {
         let start = range.start().unwrap_or(0);
-        let end = range.end().unwrap_or(self.length - 1);
+        let end = range.end().unwrap_or(self.length);
         // range makes sure that range.start <= range.end
-        assert!(end < self.length);
+        assert!(end <= self.length);
         let (first_block, first_rem) = div_rem(start, BITS);
         let (last_block, last_rem) = div_rem(end, BITS);
         let mut sum = 0usize;
@@ -285,6 +285,7 @@ fn count_ones() {
     fb.set(77, true);
     fb.set(95, true);
     fb.set(50, true);
+    fb.set(99, true);
     assert_eq!(fb.count_ones(..7), 0);
     assert_eq!(fb.count_ones(..8), 1);
     assert_eq!(fb.count_ones(..11), 1);
@@ -294,10 +295,11 @@ fn count_ones() {
     assert_eq!(fb.count_ones(..36), 4);
     assert_eq!(fb.count_ones(..40), 4);
     assert_eq!(fb.count_ones(..41), 5);
-    assert_eq!(fb.count_ones(50..), 3);
+    assert_eq!(fb.count_ones(50..), 4);
     assert_eq!(fb.count_ones(70..95), 1);
     assert_eq!(fb.count_ones(70..96), 2);
-    assert_eq!(fb.count_ones(..), 8);
+    assert_eq!(fb.count_ones(70..99), 2);
+    assert_eq!(fb.count_ones(..), 9);
 }
 
 #[test]
