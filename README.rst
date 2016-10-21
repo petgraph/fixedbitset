@@ -19,6 +19,10 @@ __ https://docs.rs/fixedbitset/
 Recent Changes
 --------------
 
+- 0.1.5
+
+  + Add method ``.count_ones(range)``.
+
 - 0.1.4
 
   + Remove an assertion in ``.copy_bit(from, to)`` so that it is in line
