@@ -154,6 +154,10 @@ impl FixedBitSet
         let start = range.start().unwrap_or(0);
         let end = range.end().unwrap_or(self.length);
         assert!(start <= end && end <= self.length);
+        self.count_ones_impl(start, end)
+    }
+
+    fn count_ones_impl(&self, start: usize, end: usize) -> usize {
         let (first_block, first_rem) = div_rem(start, BITS);
         let (last_block, last_rem) = div_rem(end, BITS);
         let mut sum = 0usize;
