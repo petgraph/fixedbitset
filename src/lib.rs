@@ -144,6 +144,11 @@ impl FixedBitSet
         }
     }
 
+    /// Count the number of set bits in the given bit range.
+    ///
+    /// Use `..` to count the whole content of the bitset.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
     pub fn count_ones<T: IndexRange>(&self, range: T) -> usize
     {
         let start = range.start().unwrap_or(0);
