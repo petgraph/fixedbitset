@@ -8,7 +8,10 @@ Please read the `API documentation here`__
 
 __ https://docs.rs/fixedbitset/
 
-|crates|_
+|build_status|_ |crates|_
+
+.. |build_status| image:: https://travis-ci.org/bluss/fixedbitset.svg?branch=master
+.. _build_status: https://travis-ci.org/bluss/fixedbitset
 
 .. |crates| image:: http://meritbadge.herokuapp.com/fixedbitset
 .. _crates: https://crates.io/crates/fixedbitset
