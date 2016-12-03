@@ -1,5 +1,6 @@
 //! **FixedBitSet** is a simple fixed size set of bits.
 #![doc(html_root_url="https://docs.rs/fixedbitset/0.1/")]
+#![cfg_attr(feature = "unstable", feature(test))]
 
 mod range;
 
@@ -188,6 +189,75 @@ impl FixedBitSet
     {
         &mut self.data
     }
+
+    /// Iterates over all set bits, i.e. all '1's.
+    #[inline]
+    pub fn iter_ones<'a>(&'a self) -> IterOnes<'a> {
+        match self.as_slice().split_first() {
+            Some((&block, rem)) => {
+                IterOnes {
+                    current_bit_idx: 0,
+                    current_block_idx: 0,
+                    current_block: block,
+                    remaining_blocks: rem
+                }
+            }
+            None => {
+                IterOnes {
+                    current_bit_idx: 0,
+                    current_block_idx: 0,
+                    current_block: 0,
+                    remaining_blocks: &[]
+                }
+            }
+        }
+    }
+}
+
+pub struct IterOnes<'a> {
+    current_bit_idx: usize,
+    current_block_idx: usize,
+    remaining_blocks: &'a[Block],
+    current_block: Block
+}
+
+impl<'a> std::iter::Iterator for IterOnes<'a> {
+    type Item = usize; // the bit position of the '1'
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut block = self.current_block;
+        let mut idx = self.current_bit_idx;
+
+        loop {
+            loop {
+                if (block & 1) == 1 {
+                    self.current_block = block >> 1;
+                    self.current_bit_idx = idx + 1;
+                    return Some(idx);
+                }
+                // reordering the two lines below makes a huge (2x) difference in performance!
+                block = block >> 1;
+                idx += 1;
+                if block == 0 {
+                    break;
+                }
+            }
+
+            // go to next block
+            match self.remaining_blocks.split_first() {
+                Some((&next_block, rest)) => {
+                    self.remaining_blocks = rest;
+                    self.current_block_idx += 1;
+                    idx = self.current_block_idx * BITS;
+                    block = next_block;
+                }
+                None => {
+                    // last block => done
+                    return None;
+                }
+            }
+        }
+    }
 }
 
 impl Clone for FixedBitSet
@@ -313,6 +383,43 @@ fn count_ones() {
     assert_eq!(fb.count_ones(100..100), 0);
 }
 
+#[test]
+fn iter_ones() {
+    let mut fb = FixedBitSet::with_capacity(100);
+    fb.set(11, true);
+    fb.set(12, true);
+    fb.set(7, true);
+    fb.set(35, true);
+    fb.set(40, true);
+    fb.set(77, true);
+    fb.set(95, true);
+    fb.set(50, true);
+    fb.set(99, true);
+
+    let ones: Vec<_> = fb.iter_ones().collect();
+
+    assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
+}
+
+#[test]
+fn iter_ones_range() {
+    fn test_range(from: usize, to: usize, capa: usize) {
+        assert!(to <= capa);
+        let mut fb = FixedBitSet::with_capacity(capa);
+        for i in from..to {
+            fb.insert(i);
+        }
+        let ones: Vec<_> = fb.iter_ones().collect();
+        let expected: Vec<_> = (from..to).collect();
+        assert_eq!(expected, ones);
+    }
+
+    for i in 0..100 {
+      test_range(i, 100, 100);
+      test_range(0, i, 100);
+    }
+}
+
 #[should_panic]
 #[test]
 fn count_ones_oob() {
@@ -331,4 +438,120 @@ fn count_ones_negative_range() {
 fn default() {
     let fb = FixedBitSet::default();
     assert_eq!(fb.len(), 0);
+}
+
+
+
+
+#[cfg(all(feature = "unstable", test))]
+mod bench {
+    extern crate test;
+    use self::test::Bencher;
+    use super::FixedBitSet;
+
+    #[inline]
+    fn iter_ones_using_contains<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
+        for bit in 0 .. fb.len() {
+           if fb.contains(bit) {
+               f(bit);
+           }
+        }
+    }
+
+    #[inline]
+    fn iter_ones_using_slice_directly<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
+        for (block_idx, &block) in fb.as_slice().iter().enumerate() {
+            let mut bit_pos = block_idx * super::BITS;
+            let mut block: u32 = block;
+
+            while block != 0 {
+                if (block & 1) == 1 {
+                    f(bit_pos);
+                }
+                block = block >> 1;
+                bit_pos += 1;
+            }
+        }
+    }
+
+    #[bench]
+    fn bench_iter_ones_using_contains_all_zeros(b: &mut Bencher) {
+        const N: usize = 1_000_000;
+        let fb = FixedBitSet::with_capacity(N);
+
+        b.iter(|| {
+            let mut count = 0;
+            iter_ones_using_contains(&fb, &mut |_bit| count += 1);
+            test::black_box(|| { count });
+        });
+    }
+
+    #[bench]
+    fn bench_iter_ones_using_contains_all_ones(b: &mut Bencher) {
+        const N: usize = 1_000_000;
+        let mut fb = FixedBitSet::with_capacity(N);
+        for i in 0..N { fb.insert(i); }
+
+        b.iter(|| {
+            let mut count = 0;
+            iter_ones_using_contains(&fb, &mut |_bit| count += 1);
+            test::black_box(|| { count });
+        });
+    }
+
+    #[bench]
+    fn bench_iter_ones_using_slice_directly_all_zero(b: &mut Bencher) {
+        const N: usize = 1_000_000;
+        let fb = FixedBitSet::with_capacity(N);
+
+        b.iter(|| {
+           let mut count = 0;
+           iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
+           test::black_box(|| { count });
+        });
+    }
+
+    #[bench]
+    fn bench_iter_ones_using_slice_directly_all_ones(b: &mut Bencher) {
+        const N: usize = 1_000_000;
+        let mut fb = FixedBitSet::with_capacity(N);
+        for i in 0..N { fb.insert(i); }
+
+        b.iter(|| {
+           let mut count = 0;
+           iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
+           test::black_box(|| { count });
+        });
+    }
+
+    #[bench]
+    fn bench_iter_ones_all_zeros(b: &mut Bencher) {
+        const N: usize = 1_000_000;
+        let fb = FixedBitSet::with_capacity(N);
+
+        b.iter(|| {
+            let mut count = 0;
+            for _ in fb.iter_ones() {
+                count += 1;
+            }
+            test::black_box(|| { count });
+        });
+    }
+
+    #[bench]
+    fn bench_iter_ones_all_ones(b: &mut Bencher) {
+        const N: usize = 1_000_000;
+        let mut fb = FixedBitSet::with_capacity(N);
+        for i in 0..N { fb.insert(i); }
+
+        b.iter(|| {
+            let mut count = 0;
+            for _ in fb.iter_ones() {
+                count += 1;
+            }
+            test::black_box(|| { count });
+        });
+    }
+
+
 }
