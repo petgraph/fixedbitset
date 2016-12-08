@@ -189,12 +189,14 @@ impl FixedBitSet
         &mut self.data
     }
 
-    /// Iterates over all set bits, i.e. all '1's.
+    /// Iterates over all enabled bits.
+    ///
+    /// Iterator element is the index of the `1` bit, type `usize`.
     #[inline]
-    pub fn iter_ones<'a>(&'a self) -> IterOnes<'a> {
+    pub fn ones(&self) -> Ones {
         match self.as_slice().split_first() {
             Some((&block, rem)) => {
-                IterOnes {
+                Ones {
                     current_bit_idx: 0,
                     current_block_idx: 0,
                     current_block: block,
@@ -202,7 +204,7 @@ impl FixedBitSet
                 }
             }
             None => {
-                IterOnes {
+                Ones {
                     current_bit_idx: 0,
                     current_block_idx: 0,
                     current_block: 0,
@@ -213,14 +215,14 @@ impl FixedBitSet
     }
 }
 
-pub struct IterOnes<'a> {
+pub struct Ones<'a> {
     current_bit_idx: usize,
     current_block_idx: usize,
-    remaining_blocks: &'a[Block],
+    remaining_blocks: &'a [Block],
     current_block: Block
 }
 
-impl<'a> std::iter::Iterator for IterOnes<'a> {
+impl<'a> Iterator for Ones<'a> {
     type Item = usize; // the bit position of the '1'
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -383,7 +385,7 @@ fn count_ones() {
 }
 
 #[test]
-fn iter_ones() {
+fn ones() {
     let mut fb = FixedBitSet::with_capacity(100);
     fb.set(11, true);
     fb.set(12, true);
@@ -395,7 +397,7 @@ fn iter_ones() {
     fb.set(50, true);
     fb.set(99, true);
 
-    let ones: Vec<_> = fb.iter_ones().collect();
+    let ones: Vec<_> = fb.ones().collect();
 
     assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
 }
@@ -408,7 +410,7 @@ fn iter_ones_range() {
         for i in from..to {
             fb.insert(i);
         }
-        let ones: Vec<_> = fb.iter_ones().collect();
+        let ones: Vec<_> = fb.ones().collect();
         let expected: Vec<_> = (from..to).collect();
         assert_eq!(expected, ones);
     }

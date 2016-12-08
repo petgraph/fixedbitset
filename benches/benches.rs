@@ -88,7 +88,7 @@ fn bench_iter_ones_all_zeros(b: &mut Bencher) {
 
     b.iter(|| {
         let mut count = 0;
-        for _ in fb.iter_ones() {
+        for _ in fb.ones() {
             count += 1;
         }
         test::black_box(|| { count });
@@ -103,7 +103,7 @@ fn bench_iter_ones_all_ones(b: &mut Bencher) {
 
     b.iter(|| {
         let mut count = 0;
-        for _ in fb.iter_ones() {
+        for _ in fb.ones() {
             count += 1;
         }
         test::black_box(|| { count });
