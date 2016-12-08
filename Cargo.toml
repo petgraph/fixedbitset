@@ -9,7 +9,3 @@ documentation = "https://docs.rs/fixedbitset/"
 repository = "https://github.com/bluss/fixedbitset"
 
 keywords = ["container", "data-structure", "bitvec", "bitset"]
-
-[features]
-unstable = []
-
