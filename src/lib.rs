@@ -4,6 +4,7 @@
 mod range;
 
 use std::ops::Index;
+use std::mem::size_of;
 pub use range::IndexRange;
 
 static TRUE: bool = true;
@@ -194,66 +195,165 @@ impl FixedBitSet
     /// Iterator element is the index of the `1` bit, type `usize`.
     #[inline]
     pub fn ones(&self) -> Ones {
+        let mut iter = BitIter {
+            current_bit_idx: 0,
+            current_block_idx: 0,
+            current_block: 0,
+            remaining_blocks: &[]
+        };
         match self.as_slice().split_first() {
             Some((&block, rem)) => {
-                Ones {
-                    current_bit_idx: 0,
-                    current_block_idx: 0,
-                    current_block: block,
-                    remaining_blocks: rem
+                iter.current_block = block;
+                iter.remaining_blocks = rem;
+                Ones(iter)
+            }
+            None => {
+                Ones(iter)
+            }
+        }
+    }
+
+    #[inline]
+    pub fn zeros(&self) -> Zeros {
+        let mut iter = BitIter {
+            current_bit_idx: 0,
+            current_block_idx: 0,
+            current_block: 0,
+            remaining_blocks: &[]
+        };
+        match self.as_slice().split_first() {
+            Some((&block, rem)) => {
+                iter.current_block = block;
+                iter.remaining_blocks = rem;
+                // get position of the last valid bit in the last block
+                let p = (self.len() % (size_of::<Block>() * 8)) as u32;
+                Zeros {
+                    i: iter,
+                    bits_to_visit: block.count_zeros(),
+                    last_bit_index: p,
                 }
             }
             None => {
-                Ones {
-                    current_bit_idx: 0,
-                    current_block_idx: 0,
-                    current_block: 0,
-                    remaining_blocks: &[]
+                Zeros {
+                    i: iter,
+                    bits_to_visit: 0,
+                    last_bit_index: 0
                 }
             }
         }
     }
 }
 
-pub struct Ones<'a> {
+/// Generic iterator over bits
+pub struct BitIter<'a> {
     current_bit_idx: usize,
     current_block_idx: usize,
     remaining_blocks: &'a [Block],
     current_block: Block
 }
 
+impl<'a> BitIter<'a> {
+    /// Move `BitIter` to the next block.
+    #[inline]
+    pub fn next_block(&mut self) -> Option<(usize, Block)> {
+        match self.remaining_blocks.split_first() {
+            Some((&next_block, rest)) => {
+                self.remaining_blocks = rest;
+                self.current_block_idx += 1;
+                let idx = self.current_block_idx * BITS;
+                let block = next_block;
+                Some((idx, block))
+            }
+            None => {
+                // last block => done
+                None
+            }
+        }
+    }
+}
+
+/// Specialized iterator over set bits.
+pub struct Ones<'a>(BitIter<'a>);
+/// Specialized iterator over unset bits.
+pub struct Zeros<'a> {
+    i: BitIter<'a>,
+    // number of unset bits left to visit
+    bits_to_visit: u32,
+    // remaining padding of the last block
+    last_bit_index: u32
+}
+
 impl<'a> Iterator for Ones<'a> {
     type Item = usize; // the bit position of the '1'
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let mut block = self.current_block;
-        let mut idx = self.current_bit_idx;
+        let mut block = self.0.current_block;
+        let mut idx = self.0.current_bit_idx;
 
         loop {
             loop {
                 if (block & 1) == 1 {
-                    self.current_block = block >> 1;
-                    self.current_bit_idx = idx + 1;
+                    self.0.current_block = block >> 1;
+                    self.0.current_bit_idx = idx + 1;
                     return Some(idx);
                 }
                 // reordering the two lines below makes a huge (2x) difference in performance!
-                block = block >> 1;
+                block >>= 1;
                 idx += 1;
                 if block == 0 {
                     break;
                 }
             }
-
             // go to next block
-            match self.remaining_blocks.split_first() {
-                Some((&next_block, rest)) => {
-                    self.remaining_blocks = rest;
-                    self.current_block_idx += 1;
-                    idx = self.current_block_idx * BITS;
-                    block = next_block;
+            match self.0.next_block() {
+                Some((idx_, block_)) => {
+                    idx = idx_;
+                    block = block_;
                 }
                 None => {
-                    // last block => done
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+impl<'a> Iterator for Zeros<'a> {
+    type Item = usize; // the bit position of the '1'
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut block = self.i.current_block;
+        let mut idx = self.i.current_bit_idx;
+
+        loop {
+            // loop until all 0 bits are visited
+            while self.bits_to_visit != 0 {
+                if (block & 1) == 0 {
+                    self.bits_to_visit -= 1;
+                    self.i.current_block = block >> 1;
+                    self.i.current_bit_idx = idx + 1;
+                    return Some(idx);
+                }
+                // reordering the two lines below makes a huge (2x) difference in performance!
+                block >>= 1;
+                idx += 1;
+            }
+            // go to next block
+            match self.i.next_block() {
+                Some((idx_, block_)) => {
+                    idx = idx_;
+                    block = block_;
+                    if self.i.remaining_blocks.is_empty() {
+                        // set all bits which indices are greater than length of
+                        // the bitset. This ensures that iterator will stop at
+                        // the right bit
+                        block |= !((2 as Block).pow(self.last_bit_index) - 1);
+                    }
+                    self.bits_to_visit = block.count_zeros();
+                }
+                None => {
                     return None;
                 }
             }
@@ -411,6 +511,49 @@ fn iter_ones_range() {
             fb.insert(i);
         }
         let ones: Vec<_> = fb.ones().collect();
+        let expected: Vec<_> = (from..to).collect();
+        assert_eq!(expected, ones);
+    }
+
+    for i in 0..100 {
+      test_range(i, 100, 100);
+      test_range(0, i, 100);
+    }
+}
+
+#[test]
+fn zeros() {
+    let mut fb = FixedBitSet::with_capacity(100);
+    for i in 0..100 {
+        fb.insert(i);
+    }
+    fb.set(11, false);
+    fb.set(12, false);
+    fb.set(7,  false);
+    fb.set(35, false);
+    fb.set(40, false);
+    fb.set(77, false);
+    fb.set(95, false);
+    fb.set(50, false);
+    fb.set(99, false);
+
+    let ones: Vec<_> = fb.zeros().collect();
+
+    assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
+}
+
+#[test]
+fn iter_zeros_range() {
+    fn test_range(from: usize, to: usize, capa: usize) {
+        assert!(to <= capa);
+        let mut fb = FixedBitSet::with_capacity(capa);
+        for i in 0..capa {
+            fb.insert(i);
+        }
+        for i in from..to {
+            fb.set(i, false);
+        }
+        let ones: Vec<_> = fb.zeros().collect();
         let expected: Vec<_> = (from..to).collect();
         assert_eq!(expected, ones);
     }
