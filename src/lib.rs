@@ -223,13 +223,19 @@ impl FixedBitSet
         };
         match self.as_slice().split_first() {
             Some((&block, rem)) => {
-                iter.current_block = block;
-                iter.remaining_blocks = rem;
                 // get position of the last valid bit in the last block
                 let p = (self.len() % (size_of::<Block>() * 8)) as u32;
+                iter.current_block = block;
+                // if bitset consists of only one block mask it accordingly to
+                // the length
+                if rem.is_empty() {
+                    iter.current_block |= !((2 as Block).pow(p) - 1);
+                }
+                iter.remaining_blocks = rem;
+                let bits = iter.current_block.count_zeros();
                 Zeros {
                     i: iter,
-                    bits_to_visit: block.count_zeros(),
+                    bits_to_visit: bits,
                     last_bit_index: p,
                 }
             }
@@ -540,6 +546,46 @@ fn zeros() {
     let ones: Vec<_> = fb.zeros().collect();
 
     assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
+}
+
+#[test]
+fn zeros_one_block() {
+    let mut fb = FixedBitSet::with_capacity(2);
+    fb.set(0, true);
+    fb.set(1, true);
+
+    let next = fb.zeros().next();
+    assert_eq!(next, None);
+}
+
+#[test]
+fn zeros_two_blocks() {
+    let mut fb = FixedBitSet::with_capacity(33);
+    for i in 0..33 {
+        fb.set(i, true);
+    }
+    let next = fb.zeros().next();
+    assert_eq!(next, None);
+}
+
+#[test]
+fn ones_one_block() {
+    let mut fb = FixedBitSet::with_capacity(2);
+    fb.set(0, false);
+    fb.set(1, false);
+
+    let next = fb.ones().next();
+    assert_eq!(next, None);
+}
+
+#[test]
+fn ones_two_blocks() {
+    let mut fb = FixedBitSet::with_capacity(33);
+    for i in 0..33 {
+        fb.set(i, false);
+    }
+    let next = fb.ones().next();
+    assert_eq!(next, None);
 }
 
 #[test]
