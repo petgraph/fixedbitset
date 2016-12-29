@@ -150,6 +150,7 @@ impl FixedBitSet
     /// Use `..` to count the whole content of the bitset.
     ///
     /// **Panics** if the range extends past the end of the bitset.
+    #[inline]
     pub fn count_ones<T: IndexRange>(&self, range: T) -> usize
     {
         let start = range.start().unwrap_or(0);
@@ -158,6 +159,7 @@ impl FixedBitSet
         self.count_ones_impl(start, end)
     }
 
+    #[inline]
     fn count_ones_impl(&self, start: usize, end: usize) -> usize {
         let (first_block, first_rem) = div_rem(start, BITS);
         let (last_block, last_rem) = div_rem(end, BITS);
