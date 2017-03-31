@@ -438,6 +438,19 @@ fn count_ones_negative_range() {
 }
 
 #[test]
+fn count_ones_panic() {
+    for i in 1..128 {
+        let fb = FixedBitSet::with_capacity(i);
+        for j in 0..fb.len() + 1 {
+            for k in j..fb.len() + 1 {
+                assert_eq!(fb.count_ones(j..k), 0);
+            }
+        }
+    }
+}
+
+
+#[test]
 fn default() {
     let fb = FixedBitSet::default();
     assert_eq!(fb.len(), 0);
