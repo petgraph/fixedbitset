@@ -171,8 +171,9 @@ impl FixedBitSet
         let mask = |x| if x != 0 { Block::max_value() >> (BITS - x) } else { 0 };
         let mask_first_block: Block = mask(first_rem);
         let mask_last_block: Block = mask(last_rem);
-        sum += (self.data[last_block] & mask_last_block).count_ones() as usize;
-        sum -= (self.data[first_block] & mask_first_block).count_ones() as usize;
+        let get_or_0 = |i| self.data.get(i).map_or(0, |&x| x);
+        sum += (get_or_0(last_block) & mask_last_block).count_ones() as usize;
+        sum -= (get_or_0(first_block) & mask_first_block).count_ones() as usize;
         sum
     }
 
@@ -436,6 +437,19 @@ fn count_ones_negative_range() {
     let fb = FixedBitSet::with_capacity(100);
     fb.count_ones(90..80);
 }
+
+#[test]
+fn count_ones_panic() {
+    for i in 1..128 {
+        let fb = FixedBitSet::with_capacity(i);
+        for j in 0..fb.len() + 1 {
+            for k in j..fb.len() + 1 {
+                assert_eq!(fb.count_ones(j..k), 0);
+            }
+        }
+    }
+}
+
 
 #[test]
 fn default() {
