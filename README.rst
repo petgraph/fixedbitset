@@ -19,6 +19,12 @@ __ https://docs.rs/fixedbitset/
 Recent Changes
 --------------
 
+- 0.1.6
+
+  + Add iterator ``.ones()`` by @mneumann
+  + Fix bug with ``.count_ones()`` where it would erronously have an
+    out-of-bounds panic for even block endpoints
+
 - 0.1.5
 
   + Add method ``.count_ones(range)``.
