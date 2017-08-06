@@ -39,7 +39,7 @@ fn bench_iter_ones_using_contains_all_zeros(b: &mut Bencher) {
     b.iter(|| {
         let mut count = 0;
         iter_ones_using_contains(&fb, &mut |_bit| count += 1);
-        test::black_box(|| { count });
+        count
     });
 }
 
@@ -52,7 +52,7 @@ fn bench_iter_ones_using_contains_all_ones(b: &mut Bencher) {
     b.iter(|| {
         let mut count = 0;
         iter_ones_using_contains(&fb, &mut |_bit| count += 1);
-        test::black_box(|| { count });
+        count
     });
 }
 
@@ -64,7 +64,7 @@ fn bench_iter_ones_using_slice_directly_all_zero(b: &mut Bencher) {
     b.iter(|| {
        let mut count = 0;
        iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
-       test::black_box(|| { count });
+       count
     });
 }
 
@@ -77,7 +77,7 @@ fn bench_iter_ones_using_slice_directly_all_ones(b: &mut Bencher) {
     b.iter(|| {
        let mut count = 0;
        iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
-       test::black_box(|| { count });
+       count
     });
 }
 
@@ -91,7 +91,7 @@ fn bench_iter_ones_all_zeros(b: &mut Bencher) {
         for _ in fb.ones() {
             count += 1;
         }
-        test::black_box(|| { count });
+        count
     });
 }
 
@@ -106,7 +106,7 @@ fn bench_iter_ones_all_ones(b: &mut Bencher) {
         for _ in fb.ones() {
             count += 1;
         }
-        test::black_box(|| { count });
+        count
     });
 }
 
@@ -116,21 +116,18 @@ fn bench_insert_range(b: &mut Bencher) {
     let mut fb = FixedBitSet::with_capacity(N);
 
     b.iter(|| {
-        test::black_box({
-            fb.insert_range(..);
-        });
+        fb.insert_range(..)
     });
 }
 
 #[bench]
-#[ignore] // just for comparison with `bench_insert_range`.
 fn bench_insert_range_using_loop(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
 
     b.iter(|| {
-        test::black_box(for i in 0..N {
+        for i in 0..N {
             fb.insert(i);
-        });
+        }
     });
 }
