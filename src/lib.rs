@@ -4,6 +4,7 @@
 mod range;
 
 use std::ops::Index;
+use std::cmp::{Ord, Ordering};
 pub use range::IndexRange;
 
 static TRUE: bool = true;
@@ -152,29 +153,42 @@ impl FixedBitSet
     #[inline]
     pub fn count_ones<T: IndexRange>(&self, range: T) -> usize
     {
-        let start = range.start().unwrap_or(0);
-        let end = range.end().unwrap_or(self.length);
-        assert!(start <= end && end <= self.length);
-        self.count_ones_impl(start, end)
+        Masks::new(range, self.length)
+            .map(|(block, mask)| unsafe {
+                let value = *self.data.get_unchecked(block);
+                (value & mask).count_ones() as usize
+            })
+            .sum()
     }
 
+    /// Enables every bit in the given range.
+    ///
+    /// Use `..` to toggle the whole bitset.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
     #[inline]
-    fn count_ones_impl(&self, start: usize, end: usize) -> usize {
-        let (first_block, first_rem) = div_rem(start, BITS);
-        let (last_block, last_rem) = div_rem(end, BITS);
-        let mut sum = 0usize;
-        // we can't skip first_block in case first_block == last_block
-        for block in &self.data[first_block..last_block] {
-            sum += block.count_ones() as usize;
+    pub fn set_range<T: IndexRange>(&mut self, range: T, enabled: bool)
+    {
+        for (block, mask) in Masks::new(range, self.length) {
+            unsafe {
+                if enabled {
+                    *self.data.get_unchecked_mut(block) |= mask;
+                } else {
+                    *self.data.get_unchecked_mut(block) &= !mask;
+                }
+            }
         }
-        // calculate masks; deals with overflowing shr problem when x == 0
-        let mask = |x| if x != 0 { Block::max_value() >> (BITS - x) } else { 0 };
-        let mask_first_block: Block = mask(first_rem);
-        let mask_last_block: Block = mask(last_rem);
-        let get_or_0 = |i| self.data.get(i).map_or(0, |&x| x);
-        sum += (get_or_0(last_block) & mask_last_block).count_ones() as usize;
-        sum -= (get_or_0(first_block) & mask_first_block).count_ones() as usize;
-        sum
+    }
+
+    /// Enables or disables every bit in the given range.
+    ///
+    /// Use `..` to make the whole bitset ones.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
+    #[inline]
+    pub fn insert_range<T: IndexRange>(&mut self, range: T)
+    {
+        self.set_range(range, true);
     }
 
     /// View the bitset as a slice of `u32` blocks
@@ -217,6 +231,60 @@ impl FixedBitSet
         }
     }
 }
+
+struct Masks {
+    first_block: usize,
+    first_mask: Block,
+    last_block: usize,
+    last_mask: Block,
+}
+
+impl Masks {
+    #[inline]
+    fn new<T: IndexRange>(range: T, length: usize) -> Masks {
+        let start = range.start().unwrap_or(0);
+        let end = range.end().unwrap_or(length);
+        assert!(start <= end && end <= length);
+
+        let (first_block, first_rem) = div_rem(start, BITS);
+        let (last_block, last_rem) = div_rem(end, BITS);
+
+        Masks {
+            first_block: first_block as usize,
+            first_mask: Block::max_value() << first_rem,
+            last_block: last_block as usize,
+            last_mask: (Block::max_value() >> 1) >> (BITS - last_rem - 1),
+            // this is equivalent to `MAX >> (BITS - x)` with correct semantics when x == 0.
+        }
+    }
+}
+
+impl Iterator for Masks {
+    type Item = (usize, Block);
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.first_block.cmp(&self.last_block) {
+            Ordering::Less => {
+                let res = (self.first_block, self.first_mask);
+                self.first_block += 1;
+                self.first_mask = !0;
+                Some(res)
+            }
+            Ordering::Equal => {
+                let mask = self.first_mask & self.last_mask;
+                let res = if mask == 0 {
+                    None
+                } else {
+                    Some((self.first_block, mask))
+                };
+                self.first_block += 1;
+                res
+            }
+            Ordering::Greater => None,
+        }
+    }
+}
+
 
 pub struct Ones<'a> {
     current_bit_idx: usize,
@@ -385,6 +453,8 @@ fn count_ones() {
     assert_eq!(fb.count_ones(0..100), 9);
     assert_eq!(fb.count_ones(0..0), 0);
     assert_eq!(fb.count_ones(100..100), 0);
+    assert_eq!(fb.count_ones(7..), 9);
+    assert_eq!(fb.count_ones(8..), 8);
 }
 
 #[test]
@@ -457,6 +527,34 @@ fn default() {
     assert_eq!(fb.len(), 0);
 }
 
+#[test]
+fn insert_range() {
+    let mut fb = FixedBitSet::with_capacity(97);
+    fb.insert_range(..3);
+    fb.insert_range(9..32);
+    fb.insert_range(37..81);
+    fb.insert_range(90..);
+    for i in 0..97 {
+        assert_eq!(fb.contains(i), i<3 || 9<=i&&i<32 || 37<=i&&i<81 || 90<=i);
+    }
+    assert!(!fb.contains(97));
+    assert!(!fb.contains(127));
+    assert!(!fb.contains(128));
+}
 
+#[test]
+fn set_range() {
+    let mut fb = FixedBitSet::with_capacity(48);
+    fb.insert_range(..);
 
+    fb.set_range(..32, false);
+    fb.set_range(37.., false);
+    fb.set_range(5..9, true);
+    fb.set_range(40..40, true);
 
+    for i in 0..48 {
+        assert_eq!(fb.contains(i), 5<=i&&i<9 || 32<=i&&i<37);
+    }
+    assert!(!fb.contains(48));
+    assert!(!fb.contains(64));
+}
