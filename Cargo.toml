@@ -1,6 +1,6 @@
 [package]
 name = "fixedbitset"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["bluss"]
 license = "MIT/Apache-2.0"
 
@@ -9,3 +9,8 @@ documentation = "https://docs.rs/fixedbitset/"
 repository = "https://github.com/bluss/fixedbitset"
 
 keywords = ["container", "data-structure", "bitvec", "bitset"]
+categories = ["data-structures"]
+
+[package.metadata.release]
+no-dev-version = true
+

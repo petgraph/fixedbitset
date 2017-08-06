@@ -19,6 +19,10 @@ __ https://docs.rs/fixedbitset/
 Recent Changes
 --------------
 
+- 0.1.7
+
+  + Add fast methods ``.insert_range``, ``.set_range`` by @kennytm
+
 - 0.1.6
 
   + Add iterator ``.ones()`` by @mneumann
