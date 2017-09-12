@@ -55,8 +55,8 @@ impl FixedBitSet
         }
     }
 
-    #[inline]
     /// Return the length of the `FixedBitSet` in bits.
+    #[inline]
     pub fn len(&self) -> usize { self.length }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -299,6 +299,7 @@ pub struct Ones<'a> {
 impl<'a> Iterator for Ones<'a> {
     type Item = usize; // the bit position of the '1'
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let mut block = self.current_block;
         let mut idx = self.current_bit_idx;
@@ -337,6 +338,7 @@ impl<'a> Iterator for Ones<'a> {
 
 impl Clone for FixedBitSet
 {
+    #[inline]
     fn clone(&self) -> Self
     {
         FixedBitSet {
