@@ -1,4 +1,4 @@
-//! **FixedBitSet** is a simple fixed size set of bits.
+//! `FixedBitSet` is a simple fixed size set of bits.
 #![doc(html_root_url="https://docs.rs/fixedbitset/0.1/")]
 
 mod range;
@@ -19,8 +19,11 @@ fn div_rem(x: usize, d: usize) -> (usize, usize)
     (x / d, x % d)
 }
 
-/// **FixedBitSet** is a simple fixed size set of bits that can
+/// `FixedBitSet` is a simple fixed size set of bits that each can
 /// be enabled (1 / **true**) or disabled (0 / **false**).
+///
+/// The bit set has a fixed capacity in terms of enabling bits (and the
+/// capacity can grow using the `grow` method).
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct FixedBitSet {
     data: Vec<Block>,
@@ -53,7 +56,7 @@ impl FixedBitSet
     }
 
     #[inline]
-    /// Return the length of the **FixedBitSet** in bits.
+    /// Return the length of the `FixedBitSet` in bits.
     pub fn len(&self) -> usize { self.length }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -161,7 +164,7 @@ impl FixedBitSet
             .sum()
     }
 
-    /// Enables every bit in the given range.
+    /// Sets every bit in the given range to the given state (`enabled`)
     ///
     /// Use `..` to toggle the whole bitset.
     ///
@@ -180,7 +183,7 @@ impl FixedBitSet
         }
     }
 
-    /// Enables or disables every bit in the given range.
+    /// Enables every bit in the given range.
     ///
     /// Use `..` to make the whole bitset ones.
     ///
