@@ -1,8 +1,8 @@
-#![feature(test)]
-
-extern crate test;
+#[macro_use]
+extern crate criterion;
 extern crate fixedbitset;
-use test::Bencher;
+
+use criterion::Criterion;
 use fixedbitset::{FixedBitSet};
 use std::mem::size_of;
 
@@ -31,103 +31,107 @@ fn iter_ones_using_slice_directly<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) 
     }
 }
 
-#[bench]
-fn bench_iter_ones_using_contains_all_zeros(b: &mut Bencher) {
+fn bench_iter_ones_using_contains_all_zeros(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
 
-    b.iter(|| {
+    c.bench_function("ones using contains: all zeros", move |b| b.iter(|| {
         let mut count = 0;
         iter_ones_using_contains(&fb, &mut |_bit| count += 1);
         count
-    });
+    }));
 }
 
-#[bench]
-fn bench_iter_ones_using_contains_all_ones(b: &mut Bencher) {
+fn bench_iter_ones_using_contains_all_ones(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
     fb.insert_range(..);
 
-    b.iter(|| {
+    c.bench_function("ones using contains: all ones", move |b| b.iter(|| {
         let mut count = 0;
         iter_ones_using_contains(&fb, &mut |_bit| count += 1);
         count
-    });
+    }));
 }
 
-#[bench]
-fn bench_iter_ones_using_slice_directly_all_zero(b: &mut Bencher) {
+fn bench_iter_ones_using_slice_directly_all_zeros(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
 
-    b.iter(|| {
+    c.bench_function("ones using slice: all zeros", move |b| b.iter(|| {
        let mut count = 0;
        iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
        count
-    });
+    }));
 }
 
-#[bench]
-fn bench_iter_ones_using_slice_directly_all_ones(b: &mut Bencher) {
+fn bench_iter_ones_using_slice_directly_all_ones(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
     fb.insert_range(..);
 
-    b.iter(|| {
+    c.bench_function("ones using slice: all ones", move |b| b.iter(|| {
        let mut count = 0;
        iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
        count
-    });
+    }));
 }
 
-#[bench]
-fn bench_iter_ones_all_zeros(b: &mut Bencher) {
+fn bench_iter_ones_all_zeros(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
 
-    b.iter(|| {
+    c.bench_function("ones: all zeros", move |b| b.iter(|| {
         let mut count = 0;
         for _ in fb.ones() {
             count += 1;
         }
         count
-    });
+    }));
 }
 
-#[bench]
-fn bench_iter_ones_all_ones(b: &mut Bencher) {
+fn bench_iter_ones_all_ones(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
     fb.insert_range(..);
 
-    b.iter(|| {
+    c.bench_function("ones: all ones", move |b| b.iter(|| {
         let mut count = 0;
         for _ in fb.ones() {
             count += 1;
         }
         count
-    });
+    }));
 }
 
-#[bench]
-fn bench_insert_range(b: &mut Bencher) {
+fn bench_insert_range(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
 
-    b.iter(|| {
+    c.bench_function("insert range", move |b| b.iter(|| {
         fb.insert_range(..)
-    });
+    }));
 }
 
-#[bench]
-fn bench_insert_range_using_loop(b: &mut Bencher) {
+fn bench_insert_range_using_loop(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
 
-    b.iter(|| {
+    c.bench_function("insert range using loop", move |b| b.iter(|| {
         for i in 0..N {
             fb.insert(i);
         }
-    });
+    }));
 }
+
+criterion_group!(benches,
+    bench_iter_ones_using_contains_all_zeros,
+    bench_iter_ones_using_contains_all_ones,
+    bench_iter_ones_using_slice_directly_all_zeros,
+    bench_iter_ones_using_slice_directly_all_ones,
+    bench_iter_ones_all_zeros,
+    bench_iter_ones_all_ones,
+    bench_insert_range,
+    bench_insert_range_using_loop
+);
+criterion_main!(benches);

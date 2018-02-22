@@ -3,14 +3,18 @@ name = "fixedbitset"
 version = "0.1.8"
 authors = ["bluss"]
 license = "MIT/Apache-2.0"
-
 description = "FixedBitSet is a simple bitset collection"
 documentation = "https://docs.rs/fixedbitset/"
 repository = "https://github.com/bluss/fixedbitset"
-
 keywords = ["container", "data-structure", "bitvec", "bitset"]
 categories = ["data-structures"]
 
 [package.metadata.release]
 no-dev-version = true
 
+[[bench]]
+name = "benches"
+harness = false
+
+[dev-dependencies]
+criterion = "0.2"
