@@ -31,10 +31,7 @@ fn iter_ones_using_slice_directly<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) 
     }
 }
 
-fn bench_iter_ones_all_zeros(c: &mut Criterion) {
-    const N: usize = 1_000_000;
-    let fb = FixedBitSet::with_capacity(N);
-
+fn make_bench_iter_ones(fb: &FixedBitSet) -> Vec<Fun<()>> {
     let default = {
         let fb = fb.clone();
         Fun::new("default", move |b, _| b.iter(|| {
@@ -61,44 +58,20 @@ fn bench_iter_ones_all_zeros(c: &mut Criterion) {
            count
        }))
     };
-    c.bench_functions("iter ones: all zeros", vec![default, contains, slice], ());
+    vec![default, contains, slice]
+}
+
+fn bench_iter_ones_all_zeros(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let fb = FixedBitSet::with_capacity(N);
+    c.bench_functions("iter ones: all zeros", make_bench_iter_ones(&fb), ());
 }
 
 fn bench_iter_ones_all_ones(c: &mut Criterion) {
     const N: usize = 1_000_000;
-    let fb = {
-        let mut tmp = FixedBitSet::with_capacity(N);
-        tmp.insert_range(..);
-        tmp
-    };
-
-    let default = {
-        let fb = fb.clone();
-        Fun::new("default", move |b, _| b.iter(|| {
-            let mut count = 0;
-            for _ in fb.ones() {
-                count += 1;
-            }
-            count
-        }))
-    };
-    let contains = {
-        let fb = fb.clone();
-        Fun::new("contains", move |b, _| b.iter(|| {
-            let mut count = 0;
-            iter_ones_using_contains(&fb, &mut |_bit| count += 1);
-            count
-        }))
-    };
-    let slice = {
-       let fb = fb.clone();
-       Fun::new("slice directly", move |b, _| b.iter(|| {
-           let mut count = 0;
-           iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
-           count
-       }))
-    };
-    c.bench_functions("iter ones: all ones", vec![default, contains, slice], ());
+    let mut fb = FixedBitSet::with_capacity(N);
+    fb.insert_range(..);
+    c.bench_functions("iter ones: all ones", make_bench_iter_ones(&fb), ());
 }
 
 fn bench_insert_range(c: &mut Criterion) {
