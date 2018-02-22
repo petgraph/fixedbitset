@@ -1,10 +1,13 @@
-#![feature(test)]
-
-extern crate test;
+extern crate byteorder;
+#[macro_use]
+extern crate criterion;
+extern crate rand;
 extern crate fixedbitset;
-use test::Bencher;
-use fixedbitset::{FixedBitSet};
+
 use std::mem::size_of;
+use criterion::{Criterion, Fun};
+use rand::Rng;
+use fixedbitset::{FixedBitSet};
 
 #[inline]
 fn iter_ones_using_contains<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
@@ -31,103 +34,88 @@ fn iter_ones_using_slice_directly<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) 
     }
 }
 
-#[bench]
-fn bench_iter_ones_using_contains_all_zeros(b: &mut Bencher) {
-    const N: usize = 1_000_000;
-    let fb = FixedBitSet::with_capacity(N);
-
-    b.iter(|| {
-        let mut count = 0;
-        iter_ones_using_contains(&fb, &mut |_bit| count += 1);
-        count
-    });
+fn make_bench_iter_ones(fb: &FixedBitSet) -> Vec<Fun<()>> {
+    let default = {
+        let fb = fb.clone();
+        Fun::new("default", move |b, _| b.iter(|| {
+            let mut count = 0;
+            for _ in fb.ones() {
+                count += 1;
+            }
+            count
+        }))
+    };
+    let contains = {
+        let fb = fb.clone();
+        Fun::new("contains", move |b, _| b.iter(|| {
+            let mut count = 0;
+            iter_ones_using_contains(&fb, &mut |_bit| count += 1);
+            count
+        }))
+    };
+    let slice = {
+       let fb = fb.clone();
+       Fun::new("slice directly", move |b, _| b.iter(|| {
+           let mut count = 0;
+           iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
+           count
+       }))
+    };
+    vec![default, contains, slice]
 }
 
-#[bench]
-fn bench_iter_ones_using_contains_all_ones(b: &mut Bencher) {
+fn bench_iter_ones_all_zeros(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let fb = FixedBitSet::with_capacity(N);
+    c.bench_functions("iter ones: all zeros", make_bench_iter_ones(&fb), ());
+}
+
+fn bench_iter_ones_all_ones(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
     fb.insert_range(..);
-
-    b.iter(|| {
-        let mut count = 0;
-        iter_ones_using_contains(&fb, &mut |_bit| count += 1);
-        count
-    });
+    c.bench_functions("iter ones: all ones", make_bench_iter_ones(&fb), ());
 }
 
-#[bench]
-fn bench_iter_ones_using_slice_directly_all_zero(b: &mut Bencher) {
+fn bench_iter_ones_random(c: &mut Criterion) {
+    const N: usize = 15625 * 2 * 32;
+    let mut fb = FixedBitSet::with_capacity(N);
+    let mut rng = rand::thread_rng();
+    {
+        let p = fb.as_mut_slice();
+        for w in p {
+            *w = rng.next_u32();
+        }
+    }
+    assert!(fb.count_ones(..) > 10);
+    c.bench_functions("iter ones: random", make_bench_iter_ones(&fb), ());
+}
+
+fn bench_insert_range(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
 
-    b.iter(|| {
-       let mut count = 0;
-       iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
-       count
-    });
+    let default = {
+        let mut fb = fb.clone();
+        Fun::new("default", move |b, _| b.iter(|| {
+            fb.insert_range(..)
+        }))
+    };
+    let loop_ = {
+        let mut fb = fb.clone();
+        Fun::new("loop", move |b, _| b.iter(|| {
+            for i in 0..N {
+                fb.insert(i);
+            }
+        }))
+    };
+    c.bench_functions("insert range", vec![default, loop_], ());
 }
 
-#[bench]
-fn bench_iter_ones_using_slice_directly_all_ones(b: &mut Bencher) {
-    const N: usize = 1_000_000;
-    let mut fb = FixedBitSet::with_capacity(N);
-    fb.insert_range(..);
-
-    b.iter(|| {
-       let mut count = 0;
-       iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
-       count
-    });
-}
-
-#[bench]
-fn bench_iter_ones_all_zeros(b: &mut Bencher) {
-    const N: usize = 1_000_000;
-    let fb = FixedBitSet::with_capacity(N);
-
-    b.iter(|| {
-        let mut count = 0;
-        for _ in fb.ones() {
-            count += 1;
-        }
-        count
-    });
-}
-
-#[bench]
-fn bench_iter_ones_all_ones(b: &mut Bencher) {
-    const N: usize = 1_000_000;
-    let mut fb = FixedBitSet::with_capacity(N);
-    fb.insert_range(..);
-
-    b.iter(|| {
-        let mut count = 0;
-        for _ in fb.ones() {
-            count += 1;
-        }
-        count
-    });
-}
-
-#[bench]
-fn bench_insert_range(b: &mut Bencher) {
-    const N: usize = 1_000_000;
-    let mut fb = FixedBitSet::with_capacity(N);
-
-    b.iter(|| {
-        fb.insert_range(..)
-    });
-}
-
-#[bench]
-fn bench_insert_range_using_loop(b: &mut Bencher) {
-    const N: usize = 1_000_000;
-    let mut fb = FixedBitSet::with_capacity(N);
-
-    b.iter(|| {
-        for i in 0..N {
-            fb.insert(i);
-        }
-    });
-}
+criterion_group!(benches,
+    bench_iter_ones_all_zeros,
+    bench_iter_ones_all_ones,
+    bench_iter_ones_random,
+    bench_insert_range
+);
+criterion_main!(benches);
