@@ -1,10 +1,13 @@
+extern crate byteorder;
 #[macro_use]
 extern crate criterion;
+extern crate rand;
 extern crate fixedbitset;
 
-use criterion::{Criterion, Fun};
-use fixedbitset::{FixedBitSet};
 use std::mem::size_of;
+use criterion::{Criterion, Fun};
+use rand::Rng;
+use fixedbitset::{FixedBitSet};
 
 #[inline]
 fn iter_ones_using_contains<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
@@ -74,6 +77,20 @@ fn bench_iter_ones_all_ones(c: &mut Criterion) {
     c.bench_functions("iter ones: all ones", make_bench_iter_ones(&fb), ());
 }
 
+fn bench_iter_ones_random(c: &mut Criterion) {
+    const N: usize = 15625 * 2 * 32;
+    let mut fb = FixedBitSet::with_capacity(N);
+    let mut rng = rand::thread_rng();
+    {
+        let p = fb.as_mut_slice();
+        for w in p {
+            *w = rng.next_u32();
+        }
+    }
+    assert!(fb.count_ones(..) > 10);
+    c.bench_functions("iter ones: random", make_bench_iter_ones(&fb), ());
+}
+
 fn bench_insert_range(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
@@ -98,6 +115,7 @@ fn bench_insert_range(c: &mut Criterion) {
 criterion_group!(benches,
     bench_iter_ones_all_zeros,
     bench_iter_ones_all_ones,
+    bench_iter_ones_random,
     bench_insert_range
 );
 criterion_main!(benches);

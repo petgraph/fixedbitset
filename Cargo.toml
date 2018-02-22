@@ -17,4 +17,6 @@ name = "benches"
 harness = false
 
 [dev-dependencies]
+byteorder = "1"
 criterion = "0.2"
+rand = "0.4"
