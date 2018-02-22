@@ -70,13 +70,14 @@ impl FixedBitSet
             length: bits,
         }
     }
+
     /// Create a new **FixedBitSet** with a specific number of bits,
     /// initialized from provided blocks.
     ///
     /// If the blocks are not the exact size needed for the capacity
     /// they will be padded with zeros (if shorter) or truncated to
     /// the capacity (if longer).
-    /// 
+    ///
     /// For example:
     /// ```
     /// let data = vec![4];
