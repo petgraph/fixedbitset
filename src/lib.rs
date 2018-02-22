@@ -303,17 +303,15 @@ impl FixedBitSet
         match self.as_slice().split_first() {
             Some((&block, rem)) => {
                 Ones {
-                    current_bit_idx: 0,
-                    current_block_idx: 0,
-                    current_block: block,
+                    bitset: block,
+                    block_idx: 0,
                     remaining_blocks: rem
                 }
             }
             None => {
                 Ones {
-                    current_bit_idx: 0,
-                    current_block_idx: 0,
-                    current_block: 0,
+                    bitset: 0,
+                    block_idx: 0,
                     remaining_blocks: &[]
                 }
             }
@@ -594,10 +592,9 @@ impl Iterator for Masks {
 ///
 /// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Ones<'a> {
-    current_bit_idx: usize,
-    current_block_idx: usize,
+    bitset: Block,
+    block_idx: usize,
     remaining_blocks: &'a [Block],
-    current_block: Block
 }
 
 impl<'a> Iterator for Ones<'a> {
@@ -605,38 +602,18 @@ impl<'a> Iterator for Ones<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let mut block = self.current_block;
-        let mut idx = self.current_bit_idx;
-
-        loop {
-            loop {
-                if (block & 1) == 1 {
-                    self.current_block = block >> 1;
-                    self.current_bit_idx = idx + 1;
-                    return Some(idx);
-                }
-                // reordering the two lines below makes a huge (2x) difference in performance!
-                block = block >> 1;
-                idx += 1;
-                if block == 0 {
-                    break;
-                }
+        while self.bitset == 0 {
+            if self.remaining_blocks.is_empty() {
+                return None;
             }
-
-            // go to next block
-            match self.remaining_blocks.split_first() {
-                Some((&next_block, rest)) => {
-                    self.remaining_blocks = rest;
-                    self.current_block_idx += 1;
-                    idx = self.current_block_idx * BITS;
-                    block = next_block;
-                }
-                None => {
-                    // last block => done
-                    return None;
-                }
-            }
+            self.bitset = self.remaining_blocks[0];
+            self.remaining_blocks = &self.remaining_blocks[1..];
+            self.block_idx += 1;
         }
+        let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
+        let r = self.bitset.trailing_zeros() as usize;
+        self.bitset ^= t;
+        Some(self.block_idx * BITS + r)
     }
 }
 
