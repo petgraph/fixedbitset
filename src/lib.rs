@@ -233,6 +233,48 @@ impl FixedBitSet
             }
         }
     }
+
+    /// Intersects two bitsets. 
+    ///
+    /// The length of the result is the min of the lengths of the arguments. Each bit at index `i`
+    /// in the result is set if both of the bits at index `i` in the arguments are set.
+    pub fn intersect(&self, other: &FixedBitSet) -> FixedBitSet
+    {
+        let (short, long) = {
+            if self.len() <= other.len() {
+                (&self.data, &other.data)
+            } else {
+                (&other.data, &self.data)
+            }
+        };
+        let mut data = short.clone();
+        for (i, &block) in long.iter().take(short.len()).enumerate() {
+            data[i] &= block;
+        }
+        let len = std::cmp::min(self.len(), other.len());
+        FixedBitSet{data: data, length: len}
+    }
+
+    /// Union two bitsets. 
+    ///
+    /// The length of the result is the max of the lengths of the arguments. Each bit at index `i`
+    /// in the result is set if either of the bits at index `i` in the arguments are set.
+    pub fn union(&self, other: &FixedBitSet) -> FixedBitSet
+    {
+        let (short, long) = {
+            if self.len() <= other.len() {
+                (&self.data, &other.data)
+            } else {
+                (&other.data, &self.data)
+            }
+        };
+        let mut data = long.clone();
+        for (i, &block) in short.iter().enumerate() {
+            data[i] |= block;
+        }
+        let len = std::cmp::max(self.len(), other.len());
+        FixedBitSet{data: data, length: len}
+    }
 }
 
 struct Masks {
@@ -562,4 +604,144 @@ fn set_range() {
     }
     assert!(!fb.contains(48));
     assert!(!fb.contains(64));
+}
+
+#[test]
+fn intersect_equal_lengths() {
+    let len = 109;
+    let a_end = 59;
+    let b_start = 23;
+    let mut a = FixedBitSet::with_capacity(len);
+    let mut b = FixedBitSet::with_capacity(len);
+    a.set_range(..a_end, true);
+    b.set_range(b_start.., true);
+    let ab = a.intersect(&b);
+    for i in 0..b_start {
+        assert!(!ab.contains(i));
+    }
+    for i in b_start..a_end {
+        assert!(ab.contains(i));
+    }
+    for i in a_end..len {
+        assert!(!ab.contains(i));
+    }
+    assert_eq!(a.len(), ab.len());
+}
+
+#[test]
+fn intersect_first_smaller() {
+    let a_len = 113;
+    let b_len = 137;
+    let len = std::cmp::min(a_len, b_len);
+    let a_end = 97;
+    let b_start = 89;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(..a_end, true);
+    b.set_range(b_start.., true);
+    let ab = a.intersect(&b);
+    for i in 0..b_start {
+        assert!(!ab.contains(i));
+    }
+    for i in b_start..a_end {
+        assert!(ab.contains(i));
+    }
+    for i in a_end..len {
+        assert!(!ab.contains(i));
+    }
+    assert_eq!(a.len(), ab.len());
+}
+
+#[test]
+fn intersect_first_larger() {
+    let a_len = 173;
+    let b_len = 137;
+    let len = std::cmp::min(a_len, b_len);
+    let a_end = 107;
+    let b_start = 43;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(..a_end, true);
+    b.set_range(b_start.., true);
+    let ab = a.intersect(&b);
+    for i in 0..b_start {
+        assert!(!ab.contains(i));
+    }
+    for i in b_start..a_end {
+        assert!(ab.contains(i));
+    }
+    for i in a_end..len {
+        assert!(!ab.contains(i));
+    }
+    assert_eq!(b.len(), ab.len());
+}
+
+#[test]
+fn union_equal_lengths() {
+    let len = 109;
+    let a_start = 17;
+    let a_end = 23;
+    let b_start = 19;
+    let b_end = 59;
+    let mut a = FixedBitSet::with_capacity(len);
+    let mut b = FixedBitSet::with_capacity(len);
+    a.set_range(a_start..a_end, true);
+    b.set_range(b_start..b_end, true);
+    let ab = a.union(&b);
+    for i in 0..a_start {
+        assert!(!ab.contains(i));
+    }
+    for i in a_start..b_end {
+        assert!(ab.contains(i));
+    }
+    for i in b_end..len {
+        assert!(!ab.contains(i));
+    }
+    assert_eq!(ab.len(), len);
+}
+
+#[test]
+fn union_first_smaller() {
+    let a_len = 113;
+    let b_len = 137;
+    let a_end = 89;
+    let b_start = 97;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(..a_end, true);
+    b.set_range(b_start.., true);
+    let ab = a.union(&b);
+    for i in 0..a_end {
+        assert!(ab.contains(i));
+    }
+    for i in a_end..b_start {
+        assert!(!ab.contains(i));
+    }
+    for i in b_start..b_len {
+        assert!(ab.contains(i));
+    }
+    assert_eq!(b_len, ab.len());
+}
+
+#[test]
+fn union_first_larger() {
+    let a_len = 173;
+    let b_len = 137;
+    let a_start = 139;
+    let b_end = 107;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(a_start.., true);
+    b.set_range(..b_end, true);
+    let ab = a.union(&b);
+    for i in a_start..a_len {
+        assert!(ab.contains(i));
+    }
+    for i in 0..b_end {
+        assert!(ab.contains(i));
+    }
+    for i in b_end..a_start {
+        assert!(!ab.contains(i));
+    }
+    assert_eq!(a_len, ab.len());
 }
