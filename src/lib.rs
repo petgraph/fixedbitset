@@ -5,6 +5,7 @@ mod range;
 
 use std::ops::Index;
 use std::cmp::{Ord, Ordering};
+use std::iter::{FromIterator};
 pub use range::IndexRange;
 
 static TRUE: bool = true;
@@ -53,6 +54,18 @@ impl FixedBitSet
             self.length = bits;
             self.data.resize(blocks, 0);
         }
+    }
+
+    /// Shrink capacity to **bits**.  If **bits** is greater than length, has no effect.
+    pub fn shrink(&mut self, bits: usize) {
+        if bits >= self.length {
+            return;
+        }
+        let (mut blocks, rem) = div_rem(bits, BITS);
+        blocks += (rem > 0) as usize;
+        self.data.truncate(blocks+1);
+        self.data.shrink_to_fit();
+        self.length = bits;
     }
 
     /// Return the length of the `FixedBitSet` in bits.
@@ -368,6 +381,32 @@ impl Index<usize> for FixedBitSet
     }
 }
 
+/// Return a FixedBitSet containing bits set to **true** for every item in the iterator, other bits
+/// are set to **false**. The length of the FixedBitSet will be at least as large as the largest
+/// item in the input iterator.
+impl FromIterator<usize> for FixedBitSet
+{
+    fn from_iter<I: IntoIterator<Item=usize>>(src: I) -> Self {
+        let iter = src.into_iter();
+        let growth_factor = 2;
+        let (_, hi) = iter.size_hint();
+        let mut fbs = FixedBitSet::with_capacity(hi.unwrap_or(0));
+        let mut max = 0;
+        for i in iter {
+            max = std::cmp::max(max, i);
+            if i >= fbs.len() {
+                let new_len = std::cmp::max(i+1, fbs.len() * growth_factor);
+                fbs.grow(new_len);
+            }
+            fbs.put(i);
+        }
+        if fbs.len() > max + 1 {
+            fbs.shrink(max + 1);
+        }
+        fbs
+    }
+}
+
 #[test]
 fn it_works() {
     const N: usize = 50;
@@ -562,4 +601,61 @@ fn set_range() {
     }
     assert!(!fb.contains(48));
     assert!(!fb.contains(64));
+}
+
+#[test]
+fn shrink() {
+    let len = 10019;
+    let len2 = 89;
+    let start = 67;
+    let mut fb = FixedBitSet::with_capacity(len);
+    fb.set_range(start.., true);
+
+    fb.shrink(len2);
+
+    for i in 0..start {
+        assert!(!fb.contains(i));
+    }
+    for i in start..len2 {
+        assert!(fb.contains(i));
+    }
+    assert!(len2 <= fb.len());
+    assert!(len > fb.len());
+}
+
+#[test]
+fn shrink_too_large() {
+    let len = 193;
+    let len2 = 197;
+    let mut fb = FixedBitSet::with_capacity(len);
+    fb.shrink(len2);
+    assert_eq!(fb.len(), len);
+}
+
+#[test]
+fn from_iterator() {
+    let items: Vec<usize>  = vec![0, 2, 4, 6, 8];
+    let fb = items.iter().cloned().collect::<FixedBitSet>();
+    for i in items {
+        assert!(fb.contains(i));
+    }
+    for i in vec![1, 3, 5, 7] {
+        assert!(!fb.contains(i));
+    }
+    assert_eq!(fb.len(), 9);
+}
+
+#[test]
+fn from_iterator_ones() {
+    let len = 257;
+    let mut fb = FixedBitSet::with_capacity(len);
+    for i in (0..len).filter(|i| i % 7 == 0) {
+        fb.put(i);
+    }
+    fb.put(len - 1);
+    let dup = fb.ones().collect::<FixedBitSet>();
+    println!("{0:?}\n{1:?}", fb, dup);
+    println!("{0:?}\n{1:?}", fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
+    assert_eq!(fb.len(), dup.len());
+    assert_eq!(fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
 }
