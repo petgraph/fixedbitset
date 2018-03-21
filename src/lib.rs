@@ -3,7 +3,7 @@
 
 mod range;
 
-use std::ops::Index;
+use std::ops::{BitAnd, BitOr, Index};
 use std::cmp::{Ord, Ordering};
 use std::iter::{FromIterator};
 pub use range::IndexRange;
@@ -234,48 +234,23 @@ impl FixedBitSet
             }
         }
     }
+    // Intersects two bitsets. 
+    //
+    // The length of the result is the min of the lengths of the arguments. Each bit at index `i`
+    // in the result is set if both of the bits at index `i` in the arguments are set.
+    //pub fn intersect(&self, other: &FixedBitSet) -> FixedBitSet
+    //{
+    //    self
+    //}
 
-    /// Intersects two bitsets. 
-    ///
-    /// The length of the result is the min of the lengths of the arguments. Each bit at index `i`
-    /// in the result is set if both of the bits at index `i` in the arguments are set.
-    pub fn intersect(&self, other: &FixedBitSet) -> FixedBitSet
-    {
-        let (short, long) = {
-            if self.len() <= other.len() {
-                (&self.data, &other.data)
-            } else {
-                (&other.data, &self.data)
-            }
-        };
-        let mut data = short.clone();
-        for (i, &block) in long.iter().take(short.len()).enumerate() {
-            data[i] &= block;
-        }
-        let len = std::cmp::min(self.len(), other.len());
-        FixedBitSet{data: data, length: len}
-    }
-
-    /// Union two bitsets. 
-    ///
-    /// The length of the result is the max of the lengths of the arguments. Each bit at index `i`
-    /// in the result is set if either of the bits at index `i` in the arguments are set.
-    pub fn union(&self, other: &FixedBitSet) -> FixedBitSet
-    {
-        let (short, long) = {
-            if self.len() <= other.len() {
-                (&self.data, &other.data)
-            } else {
-                (&other.data, &self.data)
-            }
-        };
-        let mut data = long.clone();
-        for (i, &block) in short.iter().enumerate() {
-            data[i] |= block;
-        }
-        let len = std::cmp::max(self.len(), other.len());
-        FixedBitSet{data: data, length: len}
-    }
+    // Union two bitsets. 
+    //
+    // The length of the result is the max of the lengths of the arguments. Each bit at index `i`
+    // in the result is set if either of the bits at index `i` in the arguments are set.
+    //pub fn union(&self, other: &FixedBitSet) -> FixedBitSet
+    //{
+    //    self
+    //}
 }
 
 struct Masks {
@@ -433,6 +408,46 @@ impl FromIterator<usize> for FixedBitSet
         let mut fbs = FixedBitSet::with_capacity(0);
         fbs.extend(src);
         fbs
+    }
+}
+
+impl <'a> BitAnd for &'a FixedBitSet
+{
+    type Output = FixedBitSet;
+    fn bitand(self, other: &FixedBitSet) -> FixedBitSet {
+        let (short, long) = {
+            if self.len() <= other.len() {
+                (&self.data, &other.data)
+            } else {
+                (&other.data, &self.data)
+            }
+        };
+        let mut data = short.clone();
+        for (i, &block) in long.iter().take(short.len()).enumerate() {
+            data[i] &= block;
+        }
+        let len = std::cmp::min(self.len(), other.len());
+        FixedBitSet{data: data, length: len}
+    }
+}
+
+impl <'a> BitOr for &'a FixedBitSet
+{
+    type Output = FixedBitSet;
+    fn bitor(self, other: &FixedBitSet) -> FixedBitSet {
+        let (short, long) = {
+            if self.len() <= other.len() {
+                (&self.data, &other.data)
+            } else {
+                (&other.data, &self.data)
+            }
+        };
+        let mut data = long.clone();
+        for (i, &block) in short.iter().enumerate() {
+            data[i] |= block;
+        }
+        let len = std::cmp::max(self.len(), other.len());
+        FixedBitSet{data: data, length: len}
     }
 }
 
@@ -633,7 +648,7 @@ fn set_range() {
 }
 
 #[test]
-fn intersect_equal_lengths() {
+fn bitand_equal_lengths() {
     let len = 109;
     let a_end = 59;
     let b_start = 23;
@@ -641,7 +656,7 @@ fn intersect_equal_lengths() {
     let mut b = FixedBitSet::with_capacity(len);
     a.set_range(..a_end, true);
     b.set_range(b_start.., true);
-    let ab = a.intersect(&b);
+    let ab = &a & &b;
     for i in 0..b_start {
         assert!(!ab.contains(i));
     }
@@ -655,7 +670,7 @@ fn intersect_equal_lengths() {
 }
 
 #[test]
-fn intersect_first_smaller() {
+fn bitand_first_smaller() {
     let a_len = 113;
     let b_len = 137;
     let len = std::cmp::min(a_len, b_len);
@@ -665,7 +680,7 @@ fn intersect_first_smaller() {
     let mut b = FixedBitSet::with_capacity(b_len);
     a.set_range(..a_end, true);
     b.set_range(b_start.., true);
-    let ab = a.intersect(&b);
+    let ab = &a & &b;
     for i in 0..b_start {
         assert!(!ab.contains(i));
     }
@@ -679,7 +694,7 @@ fn intersect_first_smaller() {
 }
 
 #[test]
-fn intersect_first_larger() {
+fn bitand_first_larger() {
     let a_len = 173;
     let b_len = 137;
     let len = std::cmp::min(a_len, b_len);
@@ -689,7 +704,7 @@ fn intersect_first_larger() {
     let mut b = FixedBitSet::with_capacity(b_len);
     a.set_range(..a_end, true);
     b.set_range(b_start.., true);
-    let ab = a.intersect(&b);
+    let ab = &a & &b;
     for i in 0..b_start {
         assert!(!ab.contains(i));
     }
@@ -703,7 +718,7 @@ fn intersect_first_larger() {
 }
 
 #[test]
-fn union_equal_lengths() {
+fn bitor_equal_lengths() {
     let len = 109;
     let a_start = 17;
     let a_end = 23;
@@ -713,7 +728,7 @@ fn union_equal_lengths() {
     let mut b = FixedBitSet::with_capacity(len);
     a.set_range(a_start..a_end, true);
     b.set_range(b_start..b_end, true);
-    let ab = a.union(&b);
+    let ab = &a | &b;
     for i in 0..a_start {
         assert!(!ab.contains(i));
     }
@@ -727,7 +742,7 @@ fn union_equal_lengths() {
 }
 
 #[test]
-fn union_first_smaller() {
+fn bitor_first_smaller() {
     let a_len = 113;
     let b_len = 137;
     let a_end = 89;
@@ -736,7 +751,7 @@ fn union_first_smaller() {
     let mut b = FixedBitSet::with_capacity(b_len);
     a.set_range(..a_end, true);
     b.set_range(b_start.., true);
-    let ab = a.union(&b);
+    let ab = &a | &b;
     for i in 0..a_end {
         assert!(ab.contains(i));
     }
@@ -750,7 +765,7 @@ fn union_first_smaller() {
 }
 
 #[test]
-fn union_first_larger() {
+fn bitor_first_larger() {
     let a_len = 173;
     let b_len = 137;
     let a_start = 139;
@@ -759,7 +774,7 @@ fn union_first_larger() {
     let mut b = FixedBitSet::with_capacity(b_len);
     a.set_range(a_start.., true);
     b.set_range(..b_end, true);
-    let ab = a.union(&b);
+    let ab = &a | &b;
     for i in a_start..a_len {
         assert!(ab.contains(i));
     }
@@ -772,6 +787,7 @@ fn union_first_larger() {
     assert_eq!(a_len, ab.len());
 }
 
+#[test]
 fn extend_on_empty() {
     let items: Vec<usize> = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 27, 29, 31, 37, 167];
     let mut fbs = FixedBitSet::with_capacity(0);
