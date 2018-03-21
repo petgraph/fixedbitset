@@ -5,6 +5,7 @@ mod range;
 
 use std::ops::Index;
 use std::cmp::{Ord, Ordering};
+use std::iter::{FromIterator};
 pub use range::IndexRange;
 
 static TRUE: bool = true;
@@ -368,6 +369,31 @@ impl Index<usize> for FixedBitSet
     }
 }
 
+/// Sets the bit at index **i** to **true** for each item **i** in the input **src**.
+impl Extend<usize> for FixedBitSet
+{
+    fn extend<I: IntoIterator<Item=usize>>(&mut self, src: I) {
+        let iter = src.into_iter();
+        for i in iter {
+            if i >= self.len() {
+                self.grow(i + 1);
+            }
+            self.put(i);
+        }
+    }
+}
+
+/// Return a FixedBitSet containing bits set to **true** for every item in the iterator, other bits
+/// are set to **false**.
+impl FromIterator<usize> for FixedBitSet
+{
+    fn from_iter<I: IntoIterator<Item=usize>>(src: I) -> Self {
+        let mut fbs = FixedBitSet::with_capacity(0);
+        fbs.extend(src);
+        fbs
+    }
+}
+
 #[test]
 fn it_works() {
     const N: usize = 50;
@@ -562,4 +588,64 @@ fn set_range() {
     }
     assert!(!fb.contains(48));
     assert!(!fb.contains(64));
+}
+
+#[test]
+fn extend_on_empty() {
+    let items: Vec<usize> = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 27, 29, 31, 37, 167];
+    let mut fbs = FixedBitSet::with_capacity(0);
+    fbs.extend(items.iter().cloned());
+    let ones = fbs.ones().collect::<Vec<usize>>();
+    assert!(ones == items);
+}
+
+#[test]
+fn extend() {
+    let items: Vec<usize> = vec![2, 3, 5, 7, 11, 13, 17, 19, 23, 27, 29, 31, 37, 167];
+    let mut fbs = FixedBitSet::with_capacity(168);
+    let new: Vec<usize> = vec![7, 37, 67, 137];
+    for i in &new {
+        fbs.put(*i);
+    }
+
+    fbs.extend(items.iter().cloned());
+
+    let ones = fbs.ones().collect::<Vec<usize>>();
+    let expected = {
+        let mut tmp = items.clone();
+        tmp.extend(new);
+        tmp.sort();
+        tmp.dedup();
+        tmp
+    };
+
+    assert!(ones == expected);
+}
+
+#[test]
+fn from_iterator() {
+    let items: Vec<usize> = vec![0, 2, 4, 6, 8];
+    let fb = items.iter().cloned().collect::<FixedBitSet>();
+    for i in items {
+        assert!(fb.contains(i));
+    }
+    for i in vec![1, 3, 5, 7] {
+        assert!(!fb.contains(i));
+    }
+    assert_eq!(fb.len(), 9);
+}
+
+#[test]
+fn from_iterator_ones() {
+    let len = 257;
+    let mut fb = FixedBitSet::with_capacity(len);
+    for i in (0..len).filter(|i| i % 7 == 0) {
+        fb.put(i);
+    }
+    fb.put(len - 1);
+    let dup = fb.ones().collect::<FixedBitSet>();
+    println!("{0:?}\n{1:?}", fb, dup);
+    println!("{0:?}\n{1:?}", fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
+    assert_eq!(fb.len(), dup.len());
+    assert_eq!(fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
 }
