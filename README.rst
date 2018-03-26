@@ -19,6 +19,13 @@ __ https://docs.rs/fixedbitset/
 Recent Changes
 --------------
 
+- 0.1.9
+
+  + Add intersection, union, difference iterators by @jrraymond
+  + Add intersection: ``&`` and union: ``|`` operator implementations by @jrraymond
+  + Add Extend and FromIterator implementations (from sequences of bit indices)
+    by @jrraymond
+
 - 0.1.8
 
   + Add missing ``#[inline]`` on the ones iterator
