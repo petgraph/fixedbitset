@@ -469,8 +469,8 @@ impl Extend<usize> for FixedBitSet
     }
 }
 
-/// Return a FixedBitSet containing bits set to **true** for every item in the iterator, other bits
-/// are set to **false**.
+/// Return a FixedBitSet containing bits set to **true** for every bit index in
+/// the iterator, other bits are set to **false**.
 impl FromIterator<usize> for FixedBitSet
 {
     fn from_iter<I: IntoIterator<Item=usize>>(src: I) -> Self {
