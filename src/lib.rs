@@ -263,8 +263,9 @@ impl FixedBitSet
     }
 }
 
-/// A lazy iterator producing elements in the difference of two `FixedBitSet`s. This `struct` is
-/// created by the [`difference`] method on [`FixedBitSet`].
+/// An iterator producing elements in the difference of two sets.
+///
+/// This struct is created by the [`FixedBitSet::difference`] method.
 pub struct Difference<'a> {
     iter: Ones<'a>,
     other: &'a FixedBitSet,
@@ -285,8 +286,9 @@ impl<'a> Iterator for Difference<'a> {
 }
 
 
-/// A lazy iterator producing elements in the intersection of `FixedBitSet`s. This `struct` is
-/// created by the [`intersection`] method on [`FixedBitSet`].
+/// An iterator producing elements in the intersection of two sets.
+///
+/// This struct is created by the [`FixedBitSet::intersection`] method.
 pub struct Intersection<'a> {
     iter: Ones<'a>,
     other: &'a FixedBitSet,
@@ -306,8 +308,9 @@ impl<'a> Iterator for Intersection<'a> {
     }
 }
 
-/// A lazy iterator producing elements in the union of `FixedBitSet`s. This `struct`
-/// is created by the [`union`] method on [`FixedBitSet`].
+/// An iterator producing elements in the union of two sets.
+///
+/// This struct is created by the [`FixedBitSet::union`] method.
 pub struct Union<'a> {
     iter: Chain<Ones<'a>, Difference<'a>>,
 }
@@ -376,6 +379,9 @@ impl Iterator for Masks {
 }
 
 
+/// An  iterator producing the indices of the set bit in a set.
+///
+/// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Ones<'a> {
     current_bit_idx: usize,
     current_block_idx: usize,
