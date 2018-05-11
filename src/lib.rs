@@ -261,6 +261,22 @@ impl FixedBitSet
             other: other,
         }
     }
+
+    /// Returns `true` if the set is a subset of another,
+    /// i.e. `other` contains at least all the values in `self`.
+    #[inline]
+    pub fn is_subset(&self, other: &FixedBitSet) -> bool
+    {
+        self.ones().all(|i| other[i])
+    }
+
+    /// Returns `true` if the set is a superset of another,
+    /// i.e. `self` contains at least all the values in `other`.
+    #[inline]
+    pub fn is_superset(&self, other: &FixedBitSet) -> bool
+    {
+        other.is_subset(self)
+    }
 }
 
 /// An iterator producing elements in the difference of two sets.
@@ -985,4 +1001,34 @@ fn from_iterator_ones() {
     println!("{0:?}\n{1:?}", fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
     assert_eq!(fb.len(), dup.len());
     assert_eq!(fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
+}
+
+#[test]
+fn subset_and_superset() {
+    let len = 257;
+    let mut a = FixedBitSet::with_capacity(len);
+    a.set(0, true);
+    a.set(1, true);
+    a.set(8, true);
+    a.set(39, true);
+    a.set(256, true);
+    let mut b = FixedBitSet::with_capacity(len);
+    b.set(0, true);
+    b.set(1, true);
+    b.set(8, true);
+    b.set(256, true);
+    b.set(2, true);
+    b.set(60, true);
+
+    assert!(!a.is_subset(&b));
+    assert!(!a.is_superset(&b));
+    assert!(!b.is_subset(&a));
+    assert!(!b.is_superset(&a));
+
+    b.set(39, true);
+
+    assert!(a.is_subset(&b));
+    assert!(!a.is_superset(&b));
+    assert!(!b.is_subset(&a));
+    assert!(b.is_superset(&a));
 }
