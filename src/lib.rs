@@ -261,6 +261,30 @@ impl FixedBitSet
             other: other,
         }
     }
+
+    /// In-place union of two `FixedBitSet`s.
+    pub fn union_with(&mut self, other: &FixedBitSet)
+    {
+        if other.len() >= self.len() {
+            self.grow(other.len());
+        }
+        let mn = std::cmp::min(self.data.len(), other.data.len());
+        for i in 0..mn {
+            self.data[i] |= other.data[i];
+        }
+    }
+
+    /// In-place intersection of two `FixedBitSet`s.
+    pub fn intersection_with(&mut self, other: &FixedBitSet)
+    {
+        let mn = std::cmp::min(self.data.len(), other.data.len());
+        for i in 0..mn {
+            self.data[i] &= other.data[i];
+        }
+        for i in mn..self.data.len() {
+            self.data[i] = 0;
+        }
+    }
 }
 
 /// An iterator producing elements in the difference of two sets.
@@ -510,13 +534,7 @@ impl <'a> BitAnd for &'a FixedBitSet
 impl <'a> BitAndAssign for FixedBitSet
 {
     fn bitand_assign(&mut self, other: Self) {
-        let mn = std::cmp::min(self.data.len(), other.data.len());
-        for i in 0..mn {
-            self.data[i] &= other.data[i];
-        }
-        for i in mn..self.data.len() {
-            self.data[i] = 0;
-        }
+        self.intersection_with(&other);
     }
 }
 
@@ -543,13 +561,7 @@ impl <'a> BitOr for &'a FixedBitSet
 impl <'a> BitOrAssign for FixedBitSet
 {
     fn bitor_assign(&mut self, other: Self) {
-        if other.len() >= self.len() {
-            self.grow(other.len());
-        }
-        let mn = std::cmp::min(self.data.len(), other.data.len());
-        for i in 0..mn {
-            self.data[i] |= other.data[i];
-        }
+        self.union_with(&other);
     }
 }
 
