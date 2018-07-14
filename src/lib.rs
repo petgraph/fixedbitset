@@ -268,21 +268,20 @@ impl FixedBitSet
         if other.len() >= self.len() {
             self.grow(other.len());
         }
-        let mn = std::cmp::min(self.data.len(), other.data.len());
-        for i in 0..mn {
-            self.data[i] |= other.data[i];
+        for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
+            *x |= y;
         }
     }
 
     /// In-place intersection of two `FixedBitSet`s.
-    pub fn intersection_with(&mut self, other: &FixedBitSet)
+    pub fn intersect_with(&mut self, other: &FixedBitSet)
     {
-        let mn = std::cmp::min(self.data.len(), other.data.len());
-        for i in 0..mn {
-            self.data[i] &= other.data[i];
+        for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
+            *x &= y;
         }
-        for i in mn..self.data.len() {
-            self.data[i] = 0;
+        let mn = std::cmp::min(self.data.len(), other.data.len());
+        for wd in &mut self.data[mn..] {
+           *wd = 0;
         }
     }
 }
@@ -534,7 +533,7 @@ impl <'a> BitAnd for &'a FixedBitSet
 impl <'a> BitAndAssign for FixedBitSet
 {
     fn bitand_assign(&mut self, other: Self) {
-        self.intersection_with(&other);
+        self.intersect_with(&other);
     }
 }
 
