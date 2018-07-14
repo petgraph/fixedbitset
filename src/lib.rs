@@ -269,7 +269,7 @@ impl FixedBitSet
             self.grow(other.len());
         }
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
-            *x |= y;
+            *x |= *y;
         }
     }
 
@@ -277,7 +277,7 @@ impl FixedBitSet
     pub fn intersect_with(&mut self, other: &FixedBitSet)
     {
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
-            *x &= y;
+            *x &= *y;
         }
         let mn = std::cmp::min(self.data.len(), other.data.len());
         for wd in &mut self.data[mn..] {
