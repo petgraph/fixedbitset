@@ -304,6 +304,25 @@ impl FixedBitSet
             *x ^= *y;
         }
     }
+
+    /// Returns `true` if `self` has no elements in common with `other`. This
+    /// is equivalent to checking for an empty intersection.
+    pub fn is_disjoint(&self, other: &FixedBitSet) -> bool {
+        self.data.iter().zip(other.data.iter()).all(|(x, y)| x & y == 0)
+    }
+
+    /// Returns `true` if the set is a subset of another, i.e. `other` contains
+    /// at least all the values in `self`.
+    pub fn is_subset(&self, other: &FixedBitSet) -> bool {
+        self.data.iter().zip(other.data.iter()).all(|(x, y)| x & !y == 0) &&
+        self.data.iter().skip(other.data.len()).all(|x| *x == 0)
+    }
+
+    /// Returns `true` if the set is a superset of another, i.e. `self` contains
+    /// at least all the values in `other`.
+    pub fn is_superset(&self, other: &FixedBitSet) -> bool {
+        other.is_subset(self)
+    }
 }
 
 /// An iterator producing elements in the difference of two sets.
@@ -1198,6 +1217,58 @@ fn bitxor_assign_longer() {
     a ^= b;
     let res = a.ones().collect::<Vec<usize>>();
     assert!(res == a_xor_b);
+}
+
+#[test]
+fn subset_superset_shorter() {
+    let a_ones: Vec<usize> = vec![7, 31, 32, 63];
+    let b_ones: Vec<usize> = vec![2, 7, 19, 31, 32, 37, 41, 43, 47, 63, 73, 101];
+    let mut a = a_ones.iter().cloned().collect::<FixedBitSet>();
+    let b = b_ones.iter().cloned().collect::<FixedBitSet>();
+    assert!(a.is_subset(&b) && b.is_superset(&a));
+    a.insert(14);
+    assert!(!a.is_subset(&b) && !b.is_superset(&a));
+}
+
+#[test]
+fn subset_superset_longer() {
+    let a_len = 153;
+    let b_len = 75;
+    let a_ones: Vec<usize> = vec![7, 31, 32, 63];
+    let b_ones: Vec<usize> = vec![2, 7, 19, 31, 32, 37, 41, 43, 47, 63, 73];
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.extend(a_ones.iter().cloned());
+    b.extend(b_ones.iter().cloned());
+    assert!(a.is_subset(&b) && b.is_superset(&a));
+    a.insert(100);
+    assert!(!a.is_subset(&b) && !b.is_superset(&a));
+}
+
+#[test]
+fn is_disjoint_first_shorter() {
+    let a_len = 75;
+    let b_len = 153;
+    let a_ones: Vec<usize> = vec![2, 19, 32, 37, 41, 43, 47, 73];
+    let b_ones: Vec<usize> = vec![7, 23, 31, 63, 124];
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.extend(a_ones.iter().cloned());
+    b.extend(b_ones.iter().cloned());
+    assert!(a.is_disjoint(&b));
+    a.insert(63);
+    assert!(!a.is_disjoint(&b));
+}
+
+#[test]
+fn is_disjoint_first_longer() {
+    let a_ones: Vec<usize> = vec![2, 19, 32, 37, 41, 43, 47, 73, 101];
+    let b_ones: Vec<usize> = vec![7, 23, 31, 63];
+    let a = a_ones.iter().cloned().collect::<FixedBitSet>();
+    let mut b = b_ones.iter().cloned().collect::<FixedBitSet>();
+    assert!(a.is_disjoint(&b));
+    b.insert(2);
+    assert!(!a.is_disjoint(&b));
 }
 
 #[test]
