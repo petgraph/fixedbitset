@@ -3,7 +3,7 @@
 
 mod range;
 
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Index};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, FromIterator};
 pub use range::IndexRange;
@@ -262,6 +262,15 @@ impl FixedBitSet
         }
     }
 
+    /// Returns a lazy iterator over the symmetric difference of two `FixedBitSet`s.
+    /// The symmetric difference of `a` and `b` is the elements of one, but not both, sets.
+    pub fn symmetric_difference<'a>(&'a self, other: &'a FixedBitSet) -> SymmetricDifference<'a>
+    {
+        SymmetricDifference {
+            iter: self.difference(other).chain(other.difference(self)),
+        }
+    }
+
     /// In-place union of two `FixedBitSet`s.
     pub fn union_with(&mut self, other: &FixedBitSet)
     {
@@ -282,6 +291,17 @@ impl FixedBitSet
         let mn = std::cmp::min(self.data.len(), other.data.len());
         for wd in &mut self.data[mn..] {
            *wd = 0;
+        }
+    }
+
+    /// In-place symmetric difference of two `FixedBitSet`s.
+    pub fn symmetric_difference_with(&mut self, other: &FixedBitSet)
+    {
+        if other.len() >= self.len() {
+            self.grow(other.len());
+        }
+        for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
+            *x ^= *y;
         }
     }
 }
@@ -305,6 +325,22 @@ impl<'a> Iterator for Difference<'a> {
             }
         }
         None
+    }
+}
+
+/// An iterator producing elements in the symmetric difference of two sets.
+///
+/// This struct is created by the [`FixedBitSet::symmetric_difference`] method.
+pub struct SymmetricDifference<'a> {
+    iter: Chain<Difference<'a>, Difference<'a>>,
+}
+
+impl<'a> Iterator for SymmetricDifference<'a> {
+    type Item = usize;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
     }
 }
 
@@ -561,6 +597,33 @@ impl <'a> BitOrAssign for FixedBitSet
 {
     fn bitor_assign(&mut self, other: Self) {
         self.union_with(&other);
+    }
+}
+
+impl <'a> BitXor for &'a FixedBitSet
+{
+    type Output = FixedBitSet;
+    fn bitxor(self, other: &FixedBitSet) -> FixedBitSet {
+        let (short, long) = {
+            if self.len() <= other.len() {
+                (&self.data, &other.data)
+            } else {
+                (&other.data, &self.data)
+            }
+        };
+        let mut data = long.clone();
+        for (i, &block) in short.iter().enumerate() {
+            data[i] ^= block;
+        }
+        let len = std::cmp::max(self.len(), other.len());
+        FixedBitSet{data: data, length: len}
+    }
+}
+
+impl <'a> BitXorAssign for FixedBitSet
+{
+    fn bitxor_assign(&mut self, other: Self) {
+        self.symmetric_difference_with(&other);
     }
 }
 
@@ -896,6 +959,32 @@ fn difference() {
 }
 
 #[test]
+fn symmetric_difference() {
+    let a_len = 83;
+    let b_len = 151;
+    let a_start = 47;
+    let a_end = 79;
+    let b_start = 53;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(a_start..a_end, true);
+    b.set_range(b_start..b_len, true);
+    let a_sym_diff_b = a.symmetric_difference(&b).collect::<FixedBitSet>();
+    for i in 0..a_start {
+        assert!(!a_sym_diff_b.contains(i));
+    }
+    for i in a_start..b_start {
+        assert!(a_sym_diff_b.contains(i));
+    }
+    for i in b_start..a_end {
+        assert!(!a_sym_diff_b.contains(i));
+    }
+    for i in a_end..b_len {
+        assert!(a_sym_diff_b.contains(i));
+    }
+}
+
+#[test]
 fn bitor_equal_lengths() {
     let len = 109;
     let a_start = 17;
@@ -966,6 +1055,79 @@ fn bitor_first_larger() {
 }
 
 #[test]
+fn bitxor_equal_lengths() {
+    let len = 109;
+    let a_end = 59;
+    let b_start = 23;
+    let mut a = FixedBitSet::with_capacity(len);
+    let mut b = FixedBitSet::with_capacity(len);
+    a.set_range(..a_end, true);
+    b.set_range(b_start.., true);
+    let ab = &a ^ &b;
+    for i in 0..b_start {
+        assert!(ab.contains(i));
+    }
+    for i in b_start..a_end {
+        assert!(!ab.contains(i));
+    }
+    for i in a_end..len {
+        assert!(ab.contains(i));
+    }
+    assert_eq!(a.len(), ab.len());
+}
+
+#[test]
+fn bitxor_first_smaller() {
+    let a_len = 113;
+    let b_len = 137;
+    let len = std::cmp::max(a_len, b_len);
+    let a_end = 97;
+    let b_start = 89;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(..a_end, true);
+    b.set_range(b_start.., true);
+    let ab = &a ^ &b;
+    for i in 0..b_start {
+        assert!(ab.contains(i));
+    }
+    for i in b_start..a_end {
+        assert!(!ab.contains(i));
+    }
+    for i in a_end..len {
+        assert!(ab.contains(i));
+    }
+    assert_eq!(b.len(), ab.len());
+}
+
+#[test]
+fn bitxor_first_larger() {
+    let a_len = 173;
+    let b_len = 137;
+    let len = std::cmp::max(a_len, b_len);
+    let a_end = 107;
+    let b_start = 43;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(..a_end, true);
+    b.set_range(b_start.., true);
+    let ab = &a ^ &b;
+    for i in 0..b_start {
+        assert!(ab.contains(i));
+    }
+    for i in b_start..a_end {
+        assert!(!ab.contains(i));
+    }
+    for i in a_end..b_len {
+        assert!(ab.contains(i));
+    }
+    for i in b_len..len {
+        assert!(!ab.contains(i));
+    }
+    assert_eq!(a.len(), ab.len());
+}
+
+#[test]
 fn bitand_assign_shorter() {
     let a_ones: Vec<usize> = vec![2, 3, 7, 19, 31, 32, 37, 41, 43, 47, 71, 73, 101];
     let b_ones: Vec<usize> = vec![2, 7, 8, 11, 23, 31, 32];
@@ -1012,6 +1174,30 @@ fn bitor_assign_longer() {
     a |= b;
     let res = a.ones().collect::<Vec<usize>>();
     assert!(res == a_or_b);
+}
+
+#[test]
+fn bitxor_assign_shorter() {
+    let a_ones: Vec<usize> = vec![2, 3, 7, 19, 31, 32, 37, 41, 43, 47, 71, 73, 101];
+    let b_ones: Vec<usize> = vec![2, 7, 8, 11, 23, 31, 32];
+    let a_xor_b: Vec<usize> = vec![3, 8, 11, 19, 23, 37, 41, 43, 47, 71, 73, 101];
+    let mut a = a_ones.iter().cloned().collect::<FixedBitSet>();
+    let b = b_ones.iter().cloned().collect::<FixedBitSet>();
+    a ^= b;
+    let res = a.ones().collect::<Vec<usize>>();
+    assert!(res == a_xor_b);
+}
+
+#[test]
+fn bitxor_assign_longer() {
+    let a_ones: Vec<usize> = vec![2, 7, 8, 11, 23, 31, 32];
+    let b_ones: Vec<usize> = vec![2, 3, 7, 19, 31, 32, 37, 41, 43, 47, 71, 73, 101];
+    let a_xor_b: Vec<usize> = vec![3, 8, 11, 19, 23, 37, 41, 43, 47, 71, 73, 101];
+    let mut a = a_ones.iter().cloned().collect::<FixedBitSet>();
+    let b = b_ones.iter().cloned().collect::<FixedBitSet>();
+    a ^= b;
+    let res = a.ones().collect::<Vec<usize>>();
+    assert!(res == a_xor_b);
 }
 
 #[test]
