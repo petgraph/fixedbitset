@@ -558,7 +558,7 @@ impl <'a> BitAnd for &'a FixedBitSet
         };
         let mut data = short.clone();
         for (data, block) in data.iter_mut().zip(long.iter()) {
-            *data &= block;
+            *data &= *block;
         }
         let len = std::cmp::min(self.len(), other.len());
         FixedBitSet{data: data, length: len}
@@ -586,7 +586,7 @@ impl <'a> BitOr for &'a FixedBitSet
         };
         let mut data = long.clone();
         for (data, block) in data.iter_mut().zip(short.iter()) {
-            *data |= block;
+            *data |= *block;
         }
         let len = std::cmp::max(self.len(), other.len());
         FixedBitSet{data: data, length: len}
@@ -613,7 +613,7 @@ impl <'a> BitXor for &'a FixedBitSet
         };
         let mut data = long.clone();
         for (data, block) in data.iter_mut().zip(short.iter()) {
-            *data ^= block;
+            *data ^= *block;
         }
         let len = std::cmp::max(self.len(), other.len());
         FixedBitSet{data: data, length: len}
