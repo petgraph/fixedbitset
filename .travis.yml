@@ -16,4 +16,4 @@ script:
       cargo build --verbose &&
       cargo test --verbose &&
       cargo test --verbose --release
-  - cargo clippy
+  - cargo clippy --all-targets
