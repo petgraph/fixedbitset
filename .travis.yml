@@ -4,16 +4,16 @@ matrix:
   include:
     - rust: 1.12.0
     - rust: stable
+      before_script: rustup component add clippy-preview
+      script:
+        - cargo clippy --all-targets
     - rust: beta
     - rust: nightly
 branches:
   only:
     - master
-before_script:
-  - rustup component add clippy-preview
 script:
   - |
       cargo build --verbose &&
       cargo test --verbose &&
       cargo test --verbose --release
-  - cargo clippy --all-targets
