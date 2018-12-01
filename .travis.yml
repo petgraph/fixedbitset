@@ -9,8 +9,11 @@ matrix:
 branches:
   only:
     - master
+before_script:
+  - rustup component add clippy-preview
 script:
   - |
       cargo build --verbose &&
       cargo test --verbose &&
       cargo test --verbose --release
+  - cargo clippy
