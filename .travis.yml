@@ -8,7 +8,11 @@ matrix:
     - rust: nightly
       before_script: rustup component add clippy-preview
       script:
-      - cargo clippy --all-targets
+        - |
+          cargo clippy --all-targets
+          cargo build --verbose &&
+          cargo test --verbose &&
+          cargo test --verbose --release
 branches:
   only:
     - master
