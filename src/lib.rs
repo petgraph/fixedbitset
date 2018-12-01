@@ -312,7 +312,7 @@ impl<'a> Iterator for Ones<'a> {
                     return Some(idx);
                 }
                 // reordering the two lines below makes a huge (2x) difference in performance!
-                block = block >> 1;
+                block >>= 1;
                 idx += 1;
                 if block == 0 {
                     break;
