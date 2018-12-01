@@ -25,7 +25,7 @@ fn iter_ones_using_slice_directly<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) 
             if (block & 1) == 1 {
                 f(bit_pos);
             }
-            block = block >> 1;
+            block >>= 1;
             bit_pos += 1;
         }
     }
