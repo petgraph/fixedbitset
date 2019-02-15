@@ -1,6 +1,20 @@
 //! `FixedBitSet` is a simple fixed size set of bits.
 #![doc(html_root_url="https://docs.rs/fixedbitset/0.1/")]
 
+#![cfg_attr(feature = "no_std", feature(alloc))]
+#![cfg_attr(feature = "no_std", no_std)]
+
+#[cfg(feature = "no_std")]
+extern crate alloc;
+#[cfg(feature = "no_std")]
+use alloc::{
+    vec,
+    prelude::*,
+};
+
+#[cfg(feature = "no_std")]
+use core as std;
+
 mod range;
 
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
@@ -650,7 +664,7 @@ impl <'a> BitXorAssign for FixedBitSet
 fn it_works() {
     const N: usize = 50;
     let mut fb = FixedBitSet::with_capacity(N);
-    println!("{:?}", fb);
+    
 
     for i in 0..(N + 10) {
         assert_eq!(fb.contains(i), false);
@@ -661,7 +675,7 @@ fn it_works() {
     fb.set(12, false);
     fb.set(12, true);
     fb.set(N-1, true);
-    println!("{:?}", fb);
+    
     assert!(fb.contains(10));
     assert!(!fb.contains(11));
     assert!(fb.contains(12));
@@ -1155,7 +1169,7 @@ fn bitand_assign_shorter() {
     let b = b_ones.iter().cloned().collect::<FixedBitSet>();
     a &= b;
     let res = a.ones().collect::<Vec<usize>>();
-    println!("{:?}\n{:?}", &res, &a_and_b);
+    
     assert!(res == a_and_b);
 }
 
@@ -1325,8 +1339,8 @@ fn from_iterator_ones() {
     }
     fb.put(len - 1);
     let dup = fb.ones().collect::<FixedBitSet>();
-    println!("{0:?}\n{1:?}", fb, dup);
-    println!("{0:?}\n{1:?}", fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
+    
+    
     assert_eq!(fb.len(), dup.len());
     assert_eq!(fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
 }

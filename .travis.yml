@@ -6,11 +6,14 @@ matrix:
     - rust: stable
     - rust: beta
     - rust: nightly
+    - rust: nightly
+      env:
+      - FEATURES='no_std'
 branches:
   only:
     - master
 script:
   - |
-      cargo build --verbose &&
-      cargo test --verbose &&
-      cargo test --verbose --release
+      cargo build --verbose --features "$FEATURES" &&
+      cargo test --verbose --features "$FEATURES" &&
+      cargo test --verbose --release --features "$FEATURES"
