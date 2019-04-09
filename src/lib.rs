@@ -9,7 +9,7 @@ extern crate alloc;
 #[cfg(feature = "no_std")]
 use alloc::{
     vec,
-    prelude::*,
+    vec::Vec,
 };
 
 #[cfg(feature = "no_std")]
