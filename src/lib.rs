@@ -219,6 +219,60 @@ impl FixedBitSet {
         }
     }
 
+    // Calculates the bit mask for the last block, to mask out "unused" bits.
+    fn mask_for_last_block(&self) -> Block {
+        let (_, bits_in_last_block) = div_rem(self.length, BITS);
+        if bits_in_last_block == 0 {
+            // no "unused" bits in last block.
+            !0
+        } else {
+            // last block only uses `bits_in_last_block` bits out of BITS.
+            // e.g. if `bits_in_last_block` == 4 => 0b1111
+            (1 << bits_in_last_block) - 1
+        }
+    }
+
+    /// Iterates over all unset bits.
+    ///
+    /// Iterator element is the index of the `0` bit, type `usize`.
+    #[inline]
+    pub fn zeros(&self) -> Zeros {
+        // The last block might contain "unused" bits. As these are always "0"
+        // bits, we do not have to care about them when iterating over "1" bits via ones().
+        // But when iterating over the zero bits via zeros(), we have to take these
+        // "unused" bits into account. In general, when iterating over the zero bits
+        // via zeros(), we negate every block, so every "0" bit becomes a "1" bit.
+        // We then look for "1" bits, similar to the ones() iterator. For the last block
+        // we have to apply a mask to mask out the "unused" bits in the negated block:
+        //
+        // block: 0000|100001111 => negate => 1111|011110000
+        //        ^     ^^^^                        ^^^^
+        //        +------ "unused" bits.   &  0000|111111111 (last block mask)
+        //                                 =  0000|011110000
+        //                                          ^^^^
+        let mask_for_last_block = self.mask_for_last_block();
+        match self.as_slice().split_first() {
+            Some((&block, rem)) => Zeros {
+                current_bit_idx: 0,
+                current_block_idx: 0,
+                current_block: if rem.len() == 0 {
+                    !block & mask_for_last_block
+                } else {
+                    !block
+                },
+                remaining_blocks: rem,
+                mask_for_last_block,
+            },
+            None => Zeros {
+                current_bit_idx: 0,
+                current_block_idx: 0,
+                current_block: 0,
+                remaining_blocks: &[],
+                mask_for_last_block,
+            },
+        }
+    }
+
     /// Returns a lazy iterator over the intersection of two `FixedBitSet`s
     pub fn intersection<'a>(&'a self, other: &'a FixedBitSet) -> Intersection<'a> {
         Intersection {
@@ -437,7 +491,7 @@ impl Iterator for Masks {
     }
 }
 
-/// An  iterator producing the indices of the set bit in a set.
+/// An iterator producing the indices of the set bit in a set.
 ///
 /// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Ones<'a> {
@@ -477,6 +531,60 @@ impl<'a> Iterator for Ones<'a> {
                     self.current_block_idx += 1;
                     idx = self.current_block_idx * BITS;
                     block = next_block;
+                }
+                None => {
+                    // last block => done
+                    return None;
+                }
+            }
+        }
+    }
+}
+
+/// An iterator producing the indices of the unset bits in a set.
+///
+/// This struct is created by the [`FixedBitSet::zeros`] method.
+pub struct Zeros<'a> {
+    current_bit_idx: usize,
+    current_block_idx: usize,
+    remaining_blocks: &'a [Block],
+    current_block: Block,
+    mask_for_last_block: Block,
+}
+
+impl<'a> Iterator for Zeros<'a> {
+    type Item = usize; // the bit position of the '0'
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut block = self.current_block;
+        let mut idx = self.current_bit_idx;
+
+        loop {
+            loop {
+                if (block & 1) == 1 {
+                    self.current_block = block >> 1;
+                    self.current_bit_idx = idx + 1;
+                    return Some(idx);
+                }
+                // reordering the two lines below makes a huge (2x) difference in performance!
+                block = block >> 1;
+                idx += 1;
+                if block == 0 {
+                    break;
+                }
+            }
+
+            // go to next block
+            match self.remaining_blocks.split_first() {
+                Some((&next_block, rest)) => {
+                    self.remaining_blocks = rest;
+                    self.current_block_idx += 1;
+                    idx = self.current_block_idx * BITS;
+                    block = !next_block;
+                    if rest.len() == 0 {
+                        block &= self.mask_for_last_block
+                    }
                 }
                 None => {
                     // last block => done
@@ -732,6 +840,71 @@ fn ones() {
     let ones: Vec<_> = fb.ones().collect();
 
     assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
+}
+
+#[test]
+fn ones_empty() {
+    let fb = FixedBitSet::with_capacity(0);
+    let ones: Vec<_> = fb.ones().collect();
+    assert_eq!(vec![] as Vec<usize>, ones);
+}
+
+#[test]
+fn zeros() {
+    let mut fb = FixedBitSet::with_capacity(100);
+    fb.insert_range(..);
+    fb.set(11, false);
+    fb.set(12, false);
+    fb.set(7, false);
+    fb.set(35, false);
+    fb.set(40, false);
+    fb.set(77, false);
+    fb.set(95, false);
+    fb.set(50, false);
+    fb.set(99, false);
+
+    let zeros: Vec<_> = fb.zeros().collect();
+
+    assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], zeros);
+}
+
+#[test]
+fn zeros_empty() {
+    let fb = FixedBitSet::with_capacity(0);
+    let zeros: Vec<usize> = fb.zeros().collect();
+    assert_eq!(vec![] as Vec<usize>, zeros);
+}
+
+#[test]
+fn zeros_one_bit_unset() {
+    let fb = FixedBitSet::with_capacity(1);
+    let zeros: Vec<_> = fb.zeros().collect();
+    assert_eq!(vec![0], zeros);
+}
+
+#[test]
+fn zeros_one_bit_set() {
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.insert(0);
+    let zeros: Vec<_> = fb.zeros().collect();
+    assert_eq!(vec![] as Vec<usize>, zeros);
+}
+
+#[test]
+fn zeros_one_block() {
+    let mut fb = FixedBitSet::with_capacity(BITS);
+    fb.insert_range(..);
+    let zeros: Vec<_> = fb.zeros().collect();
+    assert_eq!(vec![] as Vec<usize>, zeros);
+}
+
+#[test]
+fn zeros_one_block_one_bit_unset() {
+    let mut fb = FixedBitSet::with_capacity(BITS);
+    fb.insert_range(..);
+    fb.set(31, false);
+    let zeros: Vec<_> = fb.zeros().collect();
+    assert_eq!(vec![31], zeros);
 }
 
 #[test]

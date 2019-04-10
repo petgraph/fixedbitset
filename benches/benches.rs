@@ -103,6 +103,33 @@ fn bench_iter_ones_all_ones(b: &mut Bencher) {
     });
 }
 
+fn bench_iter_zeros_all_zeros(b: &mut Bencher) {
+    const N: usize = 1_000_000;
+    let fb = FixedBitSet::with_capacity(N);
+
+    b.iter(|| {
+        let mut count = 0;
+        for _ in fb.zeros() {
+            count += 1;
+        }
+        count
+    });
+}
+
+fn bench_iter_zeros_all_ones(b: &mut Bencher) {
+    const N: usize = 1_000_000;
+    let mut fb = FixedBitSet::with_capacity(N);
+    fb.insert_range(..);
+
+    b.iter(|| {
+        let mut count = 0;
+        for _ in fb.zeros() {
+            count += 1;
+        }
+        count
+    });
+}
+
 fn bench_insert_range(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -129,6 +156,8 @@ benchmark_group!(
     bench_iter_ones_using_slice_directly_all_ones,
     bench_iter_ones_all_zeros,
     bench_iter_ones_all_ones,
+    bench_iter_zeros_all_zeros,
+    bench_iter_zeros_all_ones,
     bench_insert_range,
     bench_insert_range_using_loop
 );
