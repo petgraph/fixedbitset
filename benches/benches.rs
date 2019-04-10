@@ -1,17 +1,17 @@
 #![feature(test)]
 
-extern crate test;
 extern crate fixedbitset;
-use test::Bencher;
-use fixedbitset::{FixedBitSet};
+extern crate test;
+use fixedbitset::FixedBitSet;
 use std::mem::size_of;
+use test::Bencher;
 
 #[inline]
 fn iter_ones_using_contains<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
-    for bit in 0 .. fb.len() {
-       if fb.contains(bit) {
-           f(bit);
-       }
+    for bit in 0..fb.len() {
+        if fb.contains(bit) {
+            f(bit);
+        }
     }
 }
 
@@ -62,9 +62,9 @@ fn bench_iter_ones_using_slice_directly_all_zero(b: &mut Bencher) {
     let fb = FixedBitSet::with_capacity(N);
 
     b.iter(|| {
-       let mut count = 0;
-       iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
-       count
+        let mut count = 0;
+        iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
+        count
     });
 }
 
@@ -75,9 +75,9 @@ fn bench_iter_ones_using_slice_directly_all_ones(b: &mut Bencher) {
     fb.insert_range(..);
 
     b.iter(|| {
-       let mut count = 0;
-       iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
-       count
+        let mut count = 0;
+        iter_ones_using_slice_directly(&fb, &mut |_bit| count += 1);
+        count
     });
 }
 
@@ -115,9 +115,7 @@ fn bench_insert_range(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
 
-    b.iter(|| {
-        fb.insert_range(..)
-    });
+    b.iter(|| fb.insert_range(..));
 }
 
 #[bench]
