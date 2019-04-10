@@ -1,10 +1,9 @@
-#![feature(test)]
-
 extern crate fixedbitset;
-extern crate test;
+#[macro_use]
+extern crate bencher;
+use bencher::Bencher;
 use fixedbitset::FixedBitSet;
 use std::mem::size_of;
-use test::Bencher;
 
 #[inline]
 fn iter_ones_using_contains<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
@@ -31,7 +30,6 @@ fn iter_ones_using_slice_directly<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) 
     }
 }
 
-#[bench]
 fn bench_iter_ones_using_contains_all_zeros(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
@@ -43,7 +41,6 @@ fn bench_iter_ones_using_contains_all_zeros(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn bench_iter_ones_using_contains_all_ones(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -56,7 +53,6 @@ fn bench_iter_ones_using_contains_all_ones(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn bench_iter_ones_using_slice_directly_all_zero(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
@@ -68,7 +64,6 @@ fn bench_iter_ones_using_slice_directly_all_zero(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn bench_iter_ones_using_slice_directly_all_ones(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -81,7 +76,6 @@ fn bench_iter_ones_using_slice_directly_all_ones(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn bench_iter_ones_all_zeros(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let fb = FixedBitSet::with_capacity(N);
@@ -95,7 +89,6 @@ fn bench_iter_ones_all_zeros(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn bench_iter_ones_all_ones(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -110,7 +103,6 @@ fn bench_iter_ones_all_ones(b: &mut Bencher) {
     });
 }
 
-#[bench]
 fn bench_insert_range(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -118,7 +110,6 @@ fn bench_insert_range(b: &mut Bencher) {
     b.iter(|| fb.insert_range(..));
 }
 
-#[bench]
 fn bench_insert_range_using_loop(b: &mut Bencher) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -129,3 +120,16 @@ fn bench_insert_range_using_loop(b: &mut Bencher) {
         }
     });
 }
+
+benchmark_group!(
+    benches,
+    bench_iter_ones_using_contains_all_zeros,
+    bench_iter_ones_using_contains_all_ones,
+    bench_iter_ones_using_slice_directly_all_zero,
+    bench_iter_ones_using_slice_directly_all_ones,
+    bench_iter_ones_all_zeros,
+    bench_iter_ones_all_ones,
+    bench_insert_range,
+    bench_insert_range_using_loop
+);
+benchmark_main!(benches);

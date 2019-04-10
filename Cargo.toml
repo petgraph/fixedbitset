@@ -14,3 +14,9 @@ categories = ["data-structures"]
 [package.metadata.release]
 no-dev-version = true
 
+[dev-dependencies]
+bencher = "0.1"
+
+[[bench]]
+name = "benches"
+harness = false
