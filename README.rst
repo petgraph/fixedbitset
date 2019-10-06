@@ -19,6 +19,16 @@ __ https://docs.rs/fixedbitset/
 Recent Changes
 --------------
 
+- 0.2.0
+
+  + Add assign operators for the bit operations by @jrraymond
+  + Add ``symmetric_difference``, ``union_with``, ``intersection_with`` by @jrraymond
+  + Add ``is_subset``, ``is_superset``, ``is_disjoint`` by @nwn
+  + Add ``.toggle(i)`` method by @ShiroUsagi-san
+  + Add default feature "std" which can be disabled to make the crate not
+    link the std library. By @jonimake and @bluss
+  + Require Rust 1.31.
+
 - 0.1.9
 
   + Add intersection, union, difference iterators by @jrraymond
