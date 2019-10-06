@@ -1,18 +1,29 @@
 //! `FixedBitSet` is a simple fixed size set of bits.
+//!
+//!
+//! ### Crate features
+//!
+//! - `std` (default feature)  
+//!   Disabling this feature disables using std and instead uses crate alloc.
+//!   Requires Rust 1.36 to disable.
+//!
+//! ### Rust Version
+//!
+//! This version of fixedbitset requires Rust 1.31 or later.
+//!
 #![doc(html_root_url="https://docs.rs/fixedbitset/0.1/")]
 
-#![cfg_attr(feature = "no_std", feature(alloc))]
-#![cfg_attr(feature = "no_std", no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "no_std")]
+#[cfg(not(feature = "std"))]
 extern crate alloc;
-#[cfg(feature = "no_std")]
+#[cfg(not(feature = "std"))]
 use alloc::{
     vec,
     vec::Vec,
 };
 
-#[cfg(feature = "no_std")]
+#[cfg(not(feature = "std"))]
 use core as std;
 
 mod range;
