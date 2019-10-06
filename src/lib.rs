@@ -33,9 +33,6 @@ use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, FromIterator};
 pub use range::IndexRange;
 
-static TRUE: bool = true;
-static FALSE: bool = false;
-
 const BITS: usize = 32;
 type Block = u32;
 
@@ -565,9 +562,9 @@ impl Index<usize> for FixedBitSet
     fn index(&self, bit: usize) -> &bool
     {
         if self.contains(bit) {
-            &TRUE
+            &true
         } else {
-            &FALSE
+            &false
         }
     }
 }
