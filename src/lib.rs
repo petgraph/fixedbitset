@@ -70,7 +70,6 @@ impl FixedBitSet
             length: bits,
         }
     }
-    
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
         let (mut blocks, rem) = div_rem(bits, BITS);
@@ -138,7 +137,16 @@ impl FixedBitSet
             prev
         }
     }
-
+    /// ***Panics** if **bit** is out of bounds
+    /// toggle the bit (inverting its state)
+    #[inline]
+    pub fn toggle(&mut self, bit: usize) {
+        assert!(bit < self.length);
+        let (block, i) = div_rem(bit, BITS);
+        unsafe {
+            *self.data.get_unchecked_mut(block) ^= (1 << i);
+        }
+    }
     /// **Panics** if **bit** is out of bounds.
     #[inline]
     pub fn set(&mut self, bit: usize, enabled: bool)
