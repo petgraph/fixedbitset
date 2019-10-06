@@ -721,6 +721,18 @@ fn grow() {
 }
 
 #[test]
+fn test_toggle() {
+    let mut fb = FixedBitSet::with_capacity(16);
+    fb.toggle(1);
+    fb.put(2);
+    fb.toggle(2);
+    fb.put(3);
+    assert!(fb.contains(1));
+    assert!(!fb.contains(2));
+    assert!(fb.contains(3));
+}
+
+#[test]
 fn copy_bit() {
     let mut fb = FixedBitSet::with_capacity(48);
     for i in 0..fb.len() {
