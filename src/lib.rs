@@ -141,7 +141,7 @@ impl FixedBitSet
         assert!(bit < self.length);
         let (block, i) = div_rem(bit, BITS);
         unsafe {
-            *self.data.get_unchecked_mut(block) ^= (1 << i);
+            *self.data.get_unchecked_mut(block) ^= 1 << i;
         }
     }
     /// **Panics** if **bit** is out of bounds.
