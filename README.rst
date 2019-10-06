@@ -10,8 +10,8 @@ __ https://docs.rs/fixedbitset/
 
 |build_status|_ |crates|_
 
-.. |build_status| image:: https://travis-ci.org/bluss/fixedbitset.svg?branch=master
-.. _build_status: https://travis-ci.org/bluss/fixedbitset
+.. |build_status| image:: https://travis-ci.org/petgraph/fixedbitset.svg?branch=master
+.. _build_status: https://travis-ci.org/petgraph/fixedbitset
 
 .. |crates| image:: http://meritbadge.herokuapp.com/fixedbitset
 .. _crates: https://crates.io/crates/fixedbitset
