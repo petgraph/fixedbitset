@@ -15,4 +15,5 @@ categories = ["data-structures"]
 no-dev-version = true
 
 [features]
-no_std = []
+std = []
+default = ["std"]

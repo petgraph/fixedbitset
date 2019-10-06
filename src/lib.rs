@@ -1,18 +1,17 @@
 //! `FixedBitSet` is a simple fixed size set of bits.
 #![doc(html_root_url="https://docs.rs/fixedbitset/0.1/")]
 
-#![cfg_attr(feature = "no_std", feature(alloc))]
-#![cfg_attr(feature = "no_std", no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "no_std")]
+#[cfg(not(feature = "std"))]
 extern crate alloc;
-#[cfg(feature = "no_std")]
+#[cfg(not(feature = "std"))]
 use alloc::{
     vec,
     vec::Vec,
 };
 
-#[cfg(feature = "no_std")]
+#[cfg(not(feature = "std"))]
 use core as std;
 
 mod range;
