@@ -134,8 +134,9 @@ impl FixedBitSet
             prev
         }
     }
-    /// ***Panics** if **bit** is out of bounds
-    /// toggle the bit (inverting its state)
+    /// Toggle `bit` (inverting its state).
+    ///
+    /// ***Panics*** if **bit** is out of bounds
     #[inline]
     pub fn toggle(&mut self, bit: usize) {
         assert!(bit < self.length);
