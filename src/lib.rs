@@ -325,6 +325,14 @@ impl FixedBitSet
         }
     }
 
+    /// In-place difference between two `FixedBitSet`s.
+    pub fn difference_with(&mut self, other: &FixedBitSet)
+    {
+        for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
+            *x &= !*y;
+        }
+    }
+
     /// In-place symmetric difference of two `FixedBitSet`s.
     pub fn symmetric_difference_with(&mut self, other: &FixedBitSet)
     {
