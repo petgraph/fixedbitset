@@ -28,7 +28,9 @@ use core as std;
 
 mod range;
 
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
+use std::fmt::Binary;
+use std::fmt::{Display, Error, Formatter};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index, Add};
 use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, FromIterator};
 pub use range::IndexRange;
@@ -353,6 +355,28 @@ impl FixedBitSet
     /// at least all the values in `other`.
     pub fn is_superset(&self, other: &FixedBitSet) -> bool {
         other.is_subset(self)
+    }
+}
+
+impl Binary for FixedBitSet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        let mut display_data = if f.alternate() {
+            String::from("0b")
+        } else {
+            String::new()
+        };
+
+        for block in self.data.iter().rev() {
+            display_data = display_data.add(&format!("{:b}", block));
+        };
+        
+        write!(f, "{}", display_data)
+    }
+}
+
+impl Display for FixedBitSet {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        Binary::fmt(&self, f)
     }
 }
 
@@ -1372,4 +1396,25 @@ fn from_iterator_ones() {
     
     assert_eq!(fb.len(), dup.len());
     assert_eq!(fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
+}
+
+#[test]
+fn binary_trait() {
+    let items: Vec<usize> = vec![1, 5, 7, 10, 14, 15];
+    let fb = items.iter().cloned().collect::<FixedBitSet>();
+
+    assert_eq!(format!("{:b}", fb), "1100010010100010");
+    assert_eq!(format!("{:#b}", fb), "0b1100010010100010");
+}
+
+#[test]
+fn display_trait() {
+    let len = 8;
+    let mut fb = FixedBitSet::with_capacity(len);
+
+    fb.put(4);
+    fb.put(2);
+
+    assert_eq!(format!("{}", fb), "10100");
+    assert_eq!(format!("{:#}", fb), "0b10100");
 }
