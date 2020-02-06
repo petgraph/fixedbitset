@@ -28,9 +28,11 @@ use core as std;
 
 mod range;
 
-use std::fmt::Binary;
-use std::fmt::{Display, Error, Formatter};
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index, Add};
+#[cfg(feature = "std")]
+use std::fmt::{Display, Error, Formatter, Binary};
+use std::ops::{Add};
+
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, FromIterator};
 pub use range::IndexRange;
@@ -358,6 +360,7 @@ impl FixedBitSet
     }
 }
 
+#[cfg(feature = "std")]
 impl Binary for FixedBitSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         let mut display_data = if f.alternate() {
@@ -374,6 +377,7 @@ impl Binary for FixedBitSet {
     }
 }
 
+#[cfg(feature = "std")]
 impl Display for FixedBitSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         Binary::fmt(&self, f)
@@ -1398,6 +1402,7 @@ fn from_iterator_ones() {
     assert_eq!(fb.ones().collect::<Vec<usize>>(), dup.ones().collect::<Vec<usize>>());
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn binary_trait() {
     let items: Vec<usize> = vec![1, 5, 7, 10, 14, 15];
@@ -1407,6 +1412,7 @@ fn binary_trait() {
     assert_eq!(format!("{:#b}", fb), "0b1100010010100010");
 }
 
+#[cfg(feature = "std")]
 #[test]
 fn display_trait() {
     let len = 8;
