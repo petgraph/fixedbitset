@@ -303,6 +303,8 @@ impl FixedBitSet
     }
 
     /// In-place union of two `FixedBitSet`s.
+    ///
+    /// On calling this method, `self`'s capacity may be increased to match `other`'s.
     pub fn union_with(&mut self, other: &FixedBitSet)
     {
         if other.len() >= self.len() {
@@ -314,6 +316,8 @@ impl FixedBitSet
     }
 
     /// In-place intersection of two `FixedBitSet`s.
+    ///
+    /// On calling this method, `self`'s capacity will remain the same as before.
     pub fn intersect_with(&mut self, other: &FixedBitSet)
     {
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
@@ -326,6 +330,8 @@ impl FixedBitSet
     }
 
     /// In-place symmetric difference of two `FixedBitSet`s.
+    ///
+    /// On calling this method, `self`'s capacity may be increased to match `other`'s.
     pub fn symmetric_difference_with(&mut self, other: &FixedBitSet)
     {
         if other.len() >= self.len() {
@@ -965,7 +971,7 @@ fn intersection() {
     a.set_range(..a_end, true);
     b.set_range(b_start.., true);
 
-    let ab = a.intersection(&b).collect::<FixedBitSet>();
+    let mut ab = a.intersection(&b).collect::<FixedBitSet>();
 
     for i in 0..b_start {
         assert!(!ab.contains(i));
@@ -976,6 +982,11 @@ fn intersection() {
     for i in a_end..len {
         assert!(!ab.contains(i));
     }
+
+    a.intersect_with(&b);
+    // intersection + collect produces the same results but with a shorter length.
+    ab.grow(a.len());
+    assert_eq!(ab, a, "intersection and intersect_with produce the same results");
 }
 
 #[test]
@@ -998,6 +1009,9 @@ fn union() {
     for i in b_end..a_start {
         assert!(!ab.contains(i));
     }
+
+    a.union_with(&b);
+    assert_eq!(ab, a, "union and union_with produce the same results");
 }
 
 #[test]
@@ -1018,6 +1032,8 @@ fn difference() {
     for i in b_start..b_len {
         assert!(!a_diff_b.contains(i));
     }
+
+    // TODO: test difference_with once added.
 }
 
 #[test]
@@ -1044,6 +1060,9 @@ fn symmetric_difference() {
     for i in a_end..b_len {
         assert!(a_sym_diff_b.contains(i));
     }
+
+    a.symmetric_difference_with(&b);
+    assert_eq!(a_sym_diff_b, a, "symmetric_difference and _with produce the same results");
 }
 
 #[test]
