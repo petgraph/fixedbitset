@@ -329,6 +329,23 @@ impl FixedBitSet
         }
     }
 
+    /// In-place difference of two `FixedBitSet`s.
+    ///
+    /// On calling this method, `self`'s capacity will remain the same as before.
+    pub fn difference_with(&mut self, other: &FixedBitSet)
+    {
+        for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
+            *x &= !*y;
+        }
+
+        // There's no need to grow self or do any other adjustments.
+        //
+        // * If self is longer than other, the bits at the end of self won't be affected since other
+        //   has them implicitly set to 0.
+        // * If other is longer than self, the bits at the end of other are irrelevant since self
+        //   has them set to 0 anyway.
+    }
+
     /// In-place symmetric difference of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity may be increased to match `other`'s.
@@ -1025,7 +1042,7 @@ fn difference() {
     let mut b = FixedBitSet::with_capacity(b_len);
     a.set_range(a_start..a_end, true);
     b.set_range(b_start..b_len, true);
-    let a_diff_b = a.difference(&b).collect::<FixedBitSet>();
+    let mut a_diff_b = a.difference(&b).collect::<FixedBitSet>();
     for i in a_start..b_start {
         assert!(a_diff_b.contains(i));
     }
@@ -1033,7 +1050,10 @@ fn difference() {
         assert!(!a_diff_b.contains(i));
     }
 
-    // TODO: test difference_with once added.
+    a.difference_with(&b);
+    // difference + collect produces the same results but with a shorter length.
+    a_diff_b.grow(a.len());
+    assert_eq!(a_diff_b, a, "difference and difference_with produce the same results");
 }
 
 #[test]
