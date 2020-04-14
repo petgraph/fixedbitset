@@ -67,6 +67,18 @@ impl FixedBitSet
             length: bits,
         }
     }
+    /// Create a new **FixedBitSet** with a specific number of bits,
+    /// all initially clear.
+    pub fn with_capacity_and_blocks(bits: usize, data: Vec<Block>) -> Self
+    {
+        let (mut blocks, rem) = div_rem(bits, BITS);
+        blocks += (rem > 0) as usize;
+        assert_eq!(blocks, data.len());
+        FixedBitSet {
+            data: data,
+            length: bits,
+        }
+    }
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
         let (mut blocks, rem) = div_rem(bits, BITS);
@@ -703,6 +715,14 @@ fn it_works() {
     }
 
     fb.clear();
+}
+
+#[test]
+fn with_blocks() {
+    let fb = FixedBitSet::with_capacity_and_blocks(50, vec![8u32, 0u32]);
+
+    let ones: Vec<_> = fb.ones().collect();
+    assert!(fb.contains(3));
 }
 
 #[test]
