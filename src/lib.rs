@@ -78,15 +78,23 @@ impl FixedBitSet
         let (mut n_blocks, rem) = div_rem(bits, BITS);
         n_blocks += (rem > 0) as usize;
         let mut data: Vec<Block> = blocks.into_iter().collect();
+        // Pad data with zeros if smaller or truncate if larger
         if data.len() != n_blocks {
             data.resize(n_blocks, 0);
         }
-        // TODO: reset any bits larger than capacity
+        // Disable bits in blocks beyond capacity
+        let end = data.len() * 32;
+        for (block, mask) in Masks::new(bits..end, end) {
+            unsafe {
+                *data.get_unchecked_mut(block) &= !mask;
+            }
+        }
         FixedBitSet {
             data: data,
             length: bits,
         }
     }
+
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
         let (mut blocks, rem) = div_rem(bits, BITS);
@@ -743,10 +751,21 @@ fn with_blocks_too_small() {
 
 #[test]
 fn with_blocks_too_big() {
-    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8u32, 24u32]);
+    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8u32]);
 
     // since capacity is 1, 3 shouldn't be set here
     assert!(!fb.contains(3));
+}
+
+#[test]
+fn with_blocks_too_big_range_check() {
+    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![0xff]);
+
+    // since capacity is 1, only 0 should be set
+    assert!(fb.contains(0));
+    for i in 1..0xff {
+        assert!(!fb.contains(i));
+    }
 }
 
 #[test]
