@@ -29,8 +29,8 @@ use core as std;
 mod range;
 
 #[cfg(feature = "std")]
+use std::fmt::Write;
 use std::fmt::{Display, Error, Formatter, Binary};
-use std::ops::{Add};
 
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 use std::cmp::{Ord, Ordering};
@@ -363,17 +363,19 @@ impl FixedBitSet
 #[cfg(feature = "std")]
 impl Binary for FixedBitSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
-        let mut display_data = if f.alternate() {
-            String::from("0b")
-        } else {
-            String::new()
-        };
+        if f.alternate() {
+            f.write_str("0b")?;
+        }
 
-        for block in self.data.iter().rev() {
-            display_data = display_data.add(&format!("{:b}", block));
-        };
+        for i in 0..self.length {
+            if self[i] {
+                f.write_char('1')?;
+            } else {
+                f.write_char('0')?;
+            }
+        }
         
-        write!(f, "{}", display_data)
+        Ok(())
     }
 }
 
@@ -1408,8 +1410,8 @@ fn binary_trait() {
     let items: Vec<usize> = vec![1, 5, 7, 10, 14, 15];
     let fb = items.iter().cloned().collect::<FixedBitSet>();
 
-    assert_eq!(format!("{:b}", fb), "1100010010100010");
-    assert_eq!(format!("{:#b}", fb), "0b1100010010100010");
+    assert_eq!(format!("{:b}", fb), "0100010100100011");
+    assert_eq!(format!("{:#b}", fb), "0b0100010100100011");
 }
 
 #[cfg(feature = "std")]
@@ -1421,6 +1423,6 @@ fn display_trait() {
     fb.put(4);
     fb.put(2);
 
-    assert_eq!(format!("{}", fb), "10100");
-    assert_eq!(format!("{:#}", fb), "0b10100");
+    assert_eq!(format!("{}", fb), "00101000");
+    assert_eq!(format!("{:#}", fb), "0b00101000");
 }
