@@ -68,12 +68,16 @@ impl FixedBitSet
         }
     }
     /// Create a new **FixedBitSet** with a specific number of bits,
-    /// all initially clear.
-    pub fn with_capacity_and_blocks(bits: usize, data: Vec<Block>) -> Self
+    /// initialized from provided blocks.
+    ///
+    /// This will panic if the blocks are not the exact size needed
+    /// for the capacity.
+    pub fn with_capacity_and_blocks<I: IntoIterator<Item=Block>>(bits: usize, blocks: I) -> Self
     {
-        let (mut blocks, rem) = div_rem(bits, BITS);
-        blocks += (rem > 0) as usize;
-        assert_eq!(blocks, data.len());
+        let (mut n_blocks, rem) = div_rem(bits, BITS);
+        n_blocks += (rem > 0) as usize;
+        let data: Vec<Block> = blocks.into_iter().collect();
+        assert_eq!(n_blocks, data.len());
         FixedBitSet {
             data: data,
             length: bits,
@@ -723,6 +727,18 @@ fn with_blocks() {
 
     let ones: Vec<_> = fb.ones().collect();
     assert!(fb.contains(3));
+}
+
+#[should_panic]
+#[test]
+fn with_blocks_too_small() {
+    let fb = FixedBitSet::with_capacity_and_blocks(500, vec![8u32, 0u32]);
+}
+
+#[should_panic]
+#[test]
+fn with_blocks_too_big() {
+    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8u32, 24u32]);
 }
 
 #[test]
