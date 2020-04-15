@@ -28,7 +28,6 @@ use core as std;
 
 mod range;
 
-#[cfg(feature = "std")]
 use std::fmt::Write;
 use std::fmt::{Display, Error, Formatter, Binary};
 
@@ -360,7 +359,6 @@ impl FixedBitSet
     }
 }
 
-#[cfg(feature = "std")]
 impl Binary for FixedBitSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         if f.alternate() {
@@ -379,7 +377,6 @@ impl Binary for FixedBitSet {
     }
 }
 
-#[cfg(feature = "std")]
 impl Display for FixedBitSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         Binary::fmt(&self, f)
