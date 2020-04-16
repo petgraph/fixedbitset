@@ -70,6 +70,34 @@ impl FixedBitSet
             length: bits,
         }
     }
+    /// Create a new **FixedBitSet** with a specific number of bits,
+    /// initialized from provided blocks.
+    ///
+    /// If the blocks are not the exact size needed for the capacity
+    /// they will be padded with zeros (if shorter) or truncated to
+    /// the capacity (if longer).
+    pub fn with_capacity_and_blocks<I: IntoIterator<Item=Block>>(bits: usize, blocks: I) -> Self
+    {
+        let (mut n_blocks, rem) = div_rem(bits, BITS);
+        n_blocks += (rem > 0) as usize;
+        let mut data: Vec<Block> = blocks.into_iter().collect();
+        // Pad data with zeros if smaller or truncate if larger
+        if data.len() != n_blocks {
+            data.resize(n_blocks, 0);
+        }
+        // Disable bits in blocks beyond capacity
+        let end = data.len() * 32;
+        for (block, mask) in Masks::new(bits..end, end) {
+            unsafe {
+                *data.get_unchecked_mut(block) &= !mask;
+            }
+        }
+        FixedBitSet {
+            data: data,
+            length: bits,
+        }
+    }
+
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
         let (mut blocks, rem) = div_rem(bits, BITS);
@@ -730,6 +758,41 @@ fn it_works() {
     }
 
     fb.clear();
+}
+
+#[test]
+fn with_blocks() {
+    let fb = FixedBitSet::with_capacity_and_blocks(50, vec![8u32, 0u32]);
+    assert!(fb.contains(3));
+
+    let ones: Vec<_> = fb.ones().collect();
+    assert_eq!(ones.len(), 1);
+}
+
+#[test]
+fn with_blocks_too_small() {
+    let mut fb = FixedBitSet::with_capacity_and_blocks(500, vec![8u32, 0u32]);
+    fb.insert(400);
+    assert!(fb.contains(400));
+}
+
+#[test]
+fn with_blocks_too_big() {
+    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8u32]);
+
+    // since capacity is 1, 3 shouldn't be set here
+    assert!(!fb.contains(3));
+}
+
+#[test]
+fn with_blocks_too_big_range_check() {
+    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![0xff]);
+
+    // since capacity is 1, only 0 should be set
+    assert!(fb.contains(0));
+    for i in 1..0xff {
+        assert!(!fb.contains(i));
+    }
 }
 
 #[test]
