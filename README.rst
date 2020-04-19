@@ -18,6 +18,11 @@ __ https://docs.rs/fixedbitset/
 
 Recent Changes
 --------------
+- 0.3.0
+  + Add ``with_capacity_and_blocks`` by @luizirber
+  + Add ``difference_with`` by @sunshowers
+  + Implement ``Binary`` and ``Display`` traits by @Dolphindalt
+  + Add ``toggle_range`` by @wirelyre
 
 - 0.2.0
 
