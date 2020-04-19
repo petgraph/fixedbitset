@@ -229,7 +229,7 @@ impl FixedBitSet
 
     /// Sets every bit in the given range to the given state (`enabled`)
     ///
-    /// Use `..` to toggle the whole bitset.
+    /// Use `..` to set the whole bitset.
     ///
     /// **Panics** if the range extends past the end of the bitset.
     #[inline]
@@ -255,6 +255,21 @@ impl FixedBitSet
     pub fn insert_range<T: IndexRange>(&mut self, range: T)
     {
         self.set_range(range, true);
+    }
+
+    /// Toggles (inverts) every bit in the given range.
+    ///
+    /// Use `..` to toggle the whole bitset.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
+    #[inline]
+    pub fn toggle_range<T: IndexRange>(&mut self, range: T)
+    {
+        for (block, mask) in Masks::new(range, self.length) {
+            unsafe {
+                *self.data.get_unchecked_mut(block) ^= mask;
+            }
+        }
     }
 
     /// View the bitset as a slice of `u32` blocks
@@ -995,6 +1010,22 @@ fn set_range() {
         assert_eq!(fb.contains(i), 5<=i&&i<9 || 32<=i&&i<37);
     }
     assert!(!fb.contains(48));
+    assert!(!fb.contains(64));
+}
+
+#[test]
+fn toggle_range() {
+    let mut fb = FixedBitSet::with_capacity(40);
+    fb.insert_range(..10);
+    fb.insert_range(34..38);
+
+    fb.toggle_range(5..12);
+    fb.toggle_range(30..);
+
+    for i in 0..40 {
+        assert_eq!(fb.contains(i), i<5 || 10<=i&&i<12 || 30<=i&&i<34 || 38<=i);
+    }
+    assert!(!fb.contains(40));
     assert!(!fb.contains(64));
 }
 
