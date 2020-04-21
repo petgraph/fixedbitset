@@ -26,6 +26,11 @@ use alloc::{
 #[cfg(not(feature = "std"))]
 use core as std;
 
+#[cfg(feature = "serde")]
+extern crate serde;
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+
 mod range;
 
 use std::fmt::Write;
@@ -51,6 +56,7 @@ fn div_rem(x: usize, d: usize) -> (usize, usize)
 /// The bit set has a fixed capacity in terms of enabling bits (and the
 /// capacity can grow using the `grow` method).
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FixedBitSet {
     data: Vec<Block>,
     /// length in bits
