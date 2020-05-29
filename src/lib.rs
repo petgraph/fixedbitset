@@ -28,6 +28,11 @@ use core as std;
 
 mod range;
 
+#[cfg(feature = "bitvec-asbits")]
+extern crate bitvec;
+#[cfg(feature = "bitvec-asbits")]
+mod asbits;
+
 use std::fmt::Write;
 use std::fmt::{Display, Error, Formatter, Binary};
 
