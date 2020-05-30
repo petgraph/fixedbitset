@@ -20,7 +20,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{
     vec,
-    vec::Vec,
+    vec::{Vec, IntoIter as VecIntoIter},
 };
 
 #[cfg(not(feature = "std"))]
@@ -34,6 +34,8 @@ use std::fmt::{Display, Error, Formatter, Binary};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, FromIterator};
+#[cfg(feature = "std")]
+use std::vec::IntoIter as VecIntoIter;
 pub use range::IndexRange;
 
 const BITS: usize = 32;
@@ -309,6 +311,21 @@ impl FixedBitSet
                     remaining_blocks: &[]
                 }
             }
+        }
+    }
+
+    /// Iterates over all enabled bits, taking ownership of the set.
+    ///
+    /// Iterator element is the index of the `1` bit, type `usize`.
+    #[inline]
+    pub fn into_ones(self) -> IntoOnes {
+        let mut remaining_blocks = self.data.into_iter();
+        let current_block = remaining_blocks.next().unwrap_or(0);
+        IntoOnes {
+            current_bit_idx: 0,
+            current_block_idx: 0,
+            current_block,
+            remaining_blocks
         }
     }
 
@@ -631,6 +648,55 @@ impl<'a> Iterator for Ones<'a> {
     }
 }
 
+/// An iterator producing the indices of the set bit in a set.
+///
+/// This struct is created by the [`FixedBitSet::into_ones`] method.
+pub struct IntoOnes {
+    current_bit_idx: usize,
+    current_block_idx: usize,
+    remaining_blocks: VecIntoIter<Block>,
+    current_block: Block
+}
+
+impl Iterator for IntoOnes {
+    type Item = usize; // the bit position of the '1'
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut block = self.current_block;
+        let mut idx = self.current_bit_idx;
+
+        loop {
+            loop {
+                if (block & 1) == 1 {
+                    self.current_block = block >> 1;
+                    self.current_bit_idx = idx + 1;
+                    return Some(idx);
+                }
+                // reordering the two lines below makes a huge (2x) difference in performance!
+                block = block >> 1;
+                idx += 1;
+                if block == 0 {
+                    break;
+                }
+            }
+
+            // go to next block
+            match self.remaining_blocks.next() {
+                Some(next_block) => {
+                    self.current_block_idx += 1;
+                    idx = self.current_block_idx * BITS;
+                    block = next_block;
+                }
+                None => {
+                    // last block => done
+                    return None;
+                }
+            }
+        }
+    }
+}
+
 impl Clone for FixedBitSet
 {
     #[inline]
@@ -925,6 +991,10 @@ fn ones() {
     fb.set(99, true);
 
     let ones: Vec<_> = fb.ones().collect();
+
+    assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
+
+    let ones: Vec<_> = fb.into_ones().collect();
 
     assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
 }
