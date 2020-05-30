@@ -1599,7 +1599,9 @@ fn display_trait() {
 fn comparison_and_hash() {
     fn with_values(values: &[usize], capacity: usize) -> FixedBitSet {
         let mut r = FixedBitSet::with_capacity(capacity);
-        r.extend(values.iter().copied());
+        for &v in values {
+            r.put(v);
+        }
         r
     }
 
