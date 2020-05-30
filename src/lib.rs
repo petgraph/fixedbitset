@@ -1605,10 +1605,23 @@ fn comparison_and_hash() {
         r
     }
 
-    fn hash_of<T: Hash>(t: &T) -> u64 {
-        let mut s = std::collections::hash_map::DefaultHasher::new();
+    #[derive(Default)]
+    struct MockHasher {
+        bytes: Vec<u8>
+    }
+    impl Hasher for MockHasher {
+        fn finish(&self) -> u64 {
+            unimplemented!()
+        }
+        fn write(&mut self, bytes: &[u8]) {
+            self.bytes.extend_from_slice(bytes);
+        }
+    }
+
+    fn hash_of<T: Hash>(t: &T) -> Vec<u8> {
+        let mut s = MockHasher::default();
         t.hash(&mut s);
-        s.finish()
+        s.bytes
     }
 
     let single_7_17 = with_values(&[7, 17], 32);
