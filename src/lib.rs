@@ -424,6 +424,21 @@ impl FixedBitSet
     pub fn is_superset(&self, other: &FixedBitSet) -> bool {
         other.is_subset(self)
     }
+
+    /// View the bitset as a slice of `u32` blocks with no trailing zero-blocks.
+    /// This is useful to implement the traits PartialEq, Ord and Hash
+    fn as_trimmed_slice(&self) -> &[Block] {
+        let blocks = self.as_slice();
+
+        // Trim zeros
+        for (i, &block) in blocks.iter().enumerate().rev() {
+            if block != 0 {
+                return &blocks[..i+1];
+            }
+        }
+
+        &[]
+    }
 }
 
 impl Binary for FixedBitSet {
@@ -776,7 +791,7 @@ impl PartialEq for FixedBitSet
 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.ones().eq(other.ones())
+        self.as_trimmed_slice().eq(other.as_trimmed_slice())
     }
 }
 
@@ -794,7 +809,7 @@ impl Ord for FixedBitSet
 {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.ones().cmp(other.ones())
+        self.as_trimmed_slice().cmp(other.as_trimmed_slice())
     }
 }
 
@@ -802,9 +817,7 @@ impl Hash for FixedBitSet
 {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        for elt in self.ones() {
-            elt.hash(state);
-        }
+        self.as_trimmed_slice().hash(state)
     }
 }
 
@@ -1645,4 +1658,18 @@ fn comparison_and_hash() {
     assert_eq!(hash_of(&single_7_17), hash_of(&double_7_17));
     assert_ne!(hash_of(&single_7_17), hash_of(&single_7_10));
     assert_ne!(hash_of(&double_7_17), hash_of(&double_7_17_37));
+
+    // Only trailing zeros should be trimmed
+    assert_eq!(
+        FixedBitSet::with_capacity_and_blocks(32 * 9, vec![7, 0, 7, 0, 0, 7, 0, 0, 0]),
+        FixedBitSet::with_capacity_and_blocks(32 * 8, vec![7, 0, 7, 0, 0, 7, 0, 0])
+    );
+    assert_ne!(
+        FixedBitSet::with_capacity_and_blocks(32 * 9, vec![7, 0, 7, 0, 0, 7, 0, 0, 0]),
+        FixedBitSet::with_capacity_and_blocks(32 * 9, vec![7, 0, 7, 0, 0, 17, 0, 0, 0])
+    );
+    assert_ne!(
+        FixedBitSet::with_capacity_and_blocks(32 * 8, vec![0, 7, 0, 0, 7, 0, 0, 0]),
+        FixedBitSet::with_capacity_and_blocks(32 * 7, vec![7, 0, 0, 7, 0, 0, 0])
+    );
 }
