@@ -143,7 +143,7 @@ impl FixedBitSet
     #[inline]
     pub fn insert(&mut self, bit: usize)
     {
-        assert!(bit < self.length);
+        assert!(bit < self.length, "unable to insert a bit at position {} in a fixedbitset of size {}", bit, self.length);
         let (block, i) = div_rem(bit, BITS);
         unsafe {
             *self.data.get_unchecked_mut(block) |= 1 << i;
@@ -156,7 +156,7 @@ impl FixedBitSet
     #[inline]
     pub fn put(&mut self, bit: usize) -> bool
     {
-        assert!(bit < self.length);
+        assert!(bit < self.length, "unable to put a bit at position {} in a fixedbitset of size {}", bit, self.length);
         let (block, i) = div_rem(bit, BITS);
         unsafe {
             let word = self.data.get_unchecked_mut(block);
@@ -170,7 +170,7 @@ impl FixedBitSet
     /// ***Panics*** if **bit** is out of bounds
     #[inline]
     pub fn toggle(&mut self, bit: usize) {
-        assert!(bit < self.length);
+        assert!(bit < self.length, "unable to toggle a bit at position {} in a fixedbitset of size {}", bit, self.length);
         let (block, i) = div_rem(bit, BITS);
         unsafe {
             *self.data.get_unchecked_mut(block) ^= 1 << i;
@@ -180,7 +180,7 @@ impl FixedBitSet
     #[inline]
     pub fn set(&mut self, bit: usize, enabled: bool)
     {
-        assert!(bit < self.length);
+        assert!(bit < self.length, "unable to set a bit at position {} in a fixedbitset of size {}", bit, self.length);
         let (block, i) = div_rem(bit, BITS);
         unsafe {
             let elt = self.data.get_unchecked_mut(block);
@@ -198,7 +198,7 @@ impl FixedBitSet
     #[inline]
     pub fn copy_bit(&mut self, from: usize, to: usize)
     {
-        assert!(to < self.length);
+        assert!(to < self.length, "unable to copy a bit at position {} in a fixedbitset of size {}", to, self.length);
         let (to_block, t) = div_rem(to, BITS);
         let enabled = self.contains(from);
         unsafe {
@@ -539,7 +539,8 @@ impl Masks {
     fn new<T: IndexRange>(range: T, length: usize) -> Masks {
         let start = range.start().unwrap_or(0);
         let end = range.end().unwrap_or(length);
-        assert!(start <= end && end <= length);
+        assert!(start <= end && end <= length,
+            "unable to create a mask spanning from {} to {} in a fixedbitset of size {}", start, end, length);
 
         let (first_block, first_rem) = div_rem(start, BITS);
         let (last_block, last_rem) = div_rem(end, BITS);
