@@ -76,6 +76,13 @@ impl FixedBitSet
     /// If the blocks are not the exact size needed for the capacity
     /// they will be padded with zeros (if shorter) or truncated to
     /// the capacity (if longer).
+    /// 
+    /// For example:
+    /// ```
+    /// let data = vec![4];
+    /// let bs = fixedbitset::FixedBitSet::with_capacity_and_blocks(4, data);
+    /// assert_eq!(format!("{:b}", bs), "0010");
+    /// ```
     pub fn with_capacity_and_blocks<I: IntoIterator<Item=Block>>(bits: usize, blocks: I) -> Self
     {
         let (mut n_blocks, rem) = div_rem(bits, BITS);
