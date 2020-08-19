@@ -35,6 +35,7 @@ use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, I
 use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, FromIterator};
 pub use range::IndexRange;
+use std::hash::{Hash, Hasher};
 
 const BITS: usize = 32;
 type Block = u32;
@@ -50,7 +51,7 @@ fn div_rem(x: usize, d: usize) -> (usize, usize)
 ///
 /// The bit set has a fixed capacity in terms of enabling bits (and the
 /// capacity can grow using the `grow` method).
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Default)]
 pub struct FixedBitSet {
     data: Vec<Block>,
     /// length in bits
@@ -423,6 +424,21 @@ impl FixedBitSet
     pub fn is_superset(&self, other: &FixedBitSet) -> bool {
         other.is_subset(self)
     }
+
+    /// View the bitset as a slice of `u32` blocks with no trailing zero-blocks.
+    /// This is useful to implement the traits PartialEq, Ord and Hash
+    fn as_trimmed_slice(&self) -> &[Block] {
+        let blocks = self.as_slice();
+
+        // Trim zeros
+        for (i, &block) in blocks.iter().enumerate().rev() {
+            if block != 0 {
+                return &blocks[..i+1];
+            }
+        }
+
+        &[]
+    }
 }
 
 impl Binary for FixedBitSet {
@@ -768,6 +784,41 @@ impl <'a> BitXorAssign for FixedBitSet
 {
     fn bitxor_assign(&mut self, other: Self) {
         self.symmetric_difference_with(&other);
+    }
+}
+
+/// Two `FixedBitSet`s are equal if and only if they have the exact same set of "one" elements
+impl PartialEq for FixedBitSet
+{
+    #[inline]
+    fn eq(&self, other: &Self) -> bool {
+        self.as_trimmed_slice().eq(other.as_trimmed_slice())
+    }
+}
+
+impl Eq for FixedBitSet {}
+
+impl PartialOrd for FixedBitSet
+{
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FixedBitSet
+{
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_trimmed_slice().cmp(other.as_trimmed_slice())
+    }
+}
+
+impl Hash for FixedBitSet
+{
+    #[inline]
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_trimmed_slice().hash(state)
     }
 }
 
@@ -1556,4 +1607,70 @@ fn display_trait() {
 
     assert_eq!(format!("{}", fb), "00101000");
     assert_eq!(format!("{:#}", fb), "0b00101000");
+}
+
+#[test]
+fn comparison_and_hash() {
+    fn with_values(values: &[usize], capacity: usize) -> FixedBitSet {
+        let mut r = FixedBitSet::with_capacity(capacity);
+        for &v in values {
+            r.put(v);
+        }
+        r
+    }
+
+    #[derive(Default)]
+    struct MockHasher {
+        bytes: Vec<u8>
+    }
+    impl Hasher for MockHasher {
+        fn finish(&self) -> u64 {
+            unimplemented!()
+        }
+        fn write(&mut self, bytes: &[u8]) {
+            self.bytes.extend_from_slice(bytes);
+        }
+    }
+
+    fn hash_of<T: Hash>(t: &T) -> Vec<u8> {
+        let mut s = MockHasher::default();
+        t.hash(&mut s);
+        s.bytes
+    }
+
+    let single_7_17 = with_values(&[7, 17], 32);
+    let single_7_10 = with_values(&[7, 10], 32);
+    let single_7_20 = with_values(&[7, 20], 32);
+    let double_7_17 = with_values(&[7, 17], 64);
+    let double_7_17_37 = with_values(&[7, 17, 37], 64);
+
+    // Equality
+    assert_eq!(single_7_17, double_7_17);
+    assert_ne!(single_7_17, single_7_10);
+    assert_ne!(double_7_17, double_7_17_37);
+
+    // Comparison
+    assert_eq!(single_7_17.cmp(&double_7_17), Ordering::Equal);
+    assert_eq!(single_7_17.cmp(&single_7_10), Ordering::Greater);
+    assert_eq!(single_7_17.cmp(&single_7_20), Ordering::Less);
+    assert_eq!(single_7_17.cmp(&double_7_17_37), Ordering::Less);
+
+    // Hash
+    assert_eq!(hash_of(&single_7_17), hash_of(&double_7_17));
+    assert_ne!(hash_of(&single_7_17), hash_of(&single_7_10));
+    assert_ne!(hash_of(&double_7_17), hash_of(&double_7_17_37));
+
+    // Only trailing zeros should be trimmed
+    assert_eq!(
+        FixedBitSet::with_capacity_and_blocks(32 * 9, vec![7, 0, 7, 0, 0, 7, 0, 0, 0]),
+        FixedBitSet::with_capacity_and_blocks(32 * 8, vec![7, 0, 7, 0, 0, 7, 0, 0])
+    );
+    assert_ne!(
+        FixedBitSet::with_capacity_and_blocks(32 * 9, vec![7, 0, 7, 0, 0, 7, 0, 0, 0]),
+        FixedBitSet::with_capacity_and_blocks(32 * 9, vec![7, 0, 7, 0, 0, 17, 0, 0, 0])
+    );
+    assert_ne!(
+        FixedBitSet::with_capacity_and_blocks(32 * 8, vec![0, 7, 0, 0, 7, 0, 0, 0]),
+        FixedBitSet::with_capacity_and_blocks(32 * 7, vec![7, 0, 0, 7, 0, 0, 0])
+    );
 }
