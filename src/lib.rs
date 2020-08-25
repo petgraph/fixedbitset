@@ -717,6 +717,13 @@ impl <'a> BitAndAssign for FixedBitSet
     }
 }
 
+impl <'a> BitAndAssign<&Self> for FixedBitSet
+{
+    fn bitand_assign(&mut self, other: &Self) {
+        self.intersect_with(other);
+    }
+}
+
 impl <'a> BitOr for &'a FixedBitSet
 {
     type Output = FixedBitSet;
@@ -744,6 +751,13 @@ impl <'a> BitOrAssign for FixedBitSet
     }
 }
 
+impl <'a> BitOrAssign<&Self> for FixedBitSet
+{
+    fn bitor_assign(&mut self, other: &Self) {
+        self.union_with(other);
+    }
+}
+
 impl <'a> BitXor for &'a FixedBitSet
 {
     type Output = FixedBitSet;
@@ -768,6 +782,13 @@ impl <'a> BitXorAssign for FixedBitSet
 {
     fn bitxor_assign(&mut self, other: Self) {
         self.symmetric_difference_with(&other);
+    }
+}
+
+impl <'a> BitXorAssign<&Self> for FixedBitSet
+{
+    fn bitxor_assign(&mut self, other: &Self) {
+        self.symmetric_difference_with(other);
     }
 }
 
@@ -1421,6 +1442,17 @@ fn bitxor_assign_longer() {
     a ^= b;
     let res = a.ones().collect::<Vec<usize>>();
     assert!(res == a_xor_b);
+}
+
+#[test]
+fn op_assign_ref() {
+    let mut a = FixedBitSet::with_capacity(8);
+    let b = FixedBitSet::with_capacity(8);
+
+    //check that all assign type operators work on references
+    a &= &b;
+    a |= &b;
+    a ^= &b;
 }
 
 #[test]
