@@ -18,6 +18,12 @@ __ https://docs.rs/fixedbitset/
 
 Recent Changes
 --------------
+- 0.3.1
+
+  + Add bit assign operators for references by @flaghacker
+  + Improve assertion error messages by @lovasoa
+  + Add documentation examples for ``with_capacity_and_blocks``
+
 - 0.3.0
 
   + Add ``with_capacity_and_blocks`` by @luizirber
