@@ -1,0 +1,39 @@
+name: Continuous integration
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [1.31.1, 1.36.0, stable, nightly]
+        test_nostd: [0, 1]
+        exclude:
+          - rust: 1.31.1
+            test_nostd: 1
+    env:
+      TEST_NOSTD: ${{ matrix.test_nostd }}
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        override: true
+    - name: Tests
+      run: |
+        ( [[ $TEST_NOSTD = "0" ]] || cargo test -v --no-default-features --tests --lib) &&
+        cargo build --verbose --features "$FEATURES" &&
+        cargo test --verbose --features "$FEATURES" &&
+        cargo test --verbose --release --features "$FEATURES"
