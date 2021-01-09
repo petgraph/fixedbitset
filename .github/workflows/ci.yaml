@@ -11,10 +11,8 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  test:
-
+  tests:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         include:
@@ -33,15 +31,15 @@ jobs:
             - TEST_NOSTD=1
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: ${{ matrix.rust }}
-        override: true
-    - name: Tests
-      run: |
-        ( [ -z "$TEST_NOSTD" ] || cargo test -v --no-default-features --tests --lib) &&
-        cargo build --verbose --features "$FEATURES" &&
-        cargo test --verbose --features "$FEATURES" &&
-        cargo test --verbose --release --features "$FEATURES"
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Tests
+        run: |
+          ( [ -z "$TEST_NOSTD" ] || cargo test -v --no-default-features --tests --lib) &&
+          cargo build --verbose --features "$FEATURES" &&
+          cargo test --verbose --features "$FEATURES" &&
+          cargo test --verbose --release --features "$FEATURES"
