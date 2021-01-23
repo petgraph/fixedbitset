@@ -18,6 +18,10 @@ __ https://docs.rs/fixedbitset/
 
 Recent Changes
 --------------
+- 0.3.2
+
+  + GH-18: Optimize `ones` using `trailing_zeroes` by @vks
+
 - 0.3.1
 
   + Add bit assign operators for references by @flaghacker
