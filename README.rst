@@ -20,7 +20,7 @@ Recent Changes
 --------------
 - 0.3.2
 
-  + GH-18: Optimize `ones` using `trailing_zeroes` by @vks
+  + `#18`_: Optimize `ones` using `trailing_zeroes` by @vks
 
 - 0.3.1
 
@@ -105,4 +105,5 @@ http://opensource.org/licenses/MIT, at your
 option. This file may not be copied, modified, or distributed
 except according to those terms.
 
+.. _#18: https://github.com/petgraph/fixedbitset/pull/18
 
