@@ -13,8 +13,12 @@ categories = ["data-structures"]
 
 [features]
 std = []
+bitvec-asbits = ["bitvec"]
 default = ["std"]
 
 [package.metadata.release]
 no-dev-version = true
 tag-name = "{{version}}"
+
+[dependencies]
+bitvec = { version = "^0.17", optional = true }
