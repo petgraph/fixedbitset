@@ -28,6 +28,11 @@ use core as std;
 
 mod range;
 
+#[cfg(feature = "serde")]
+extern crate serde;
+#[cfg(feature = "serde")]
+use serde::{Serialize, Deserialize};
+
 use std::fmt::Write;
 use std::fmt::{Display, Error, Formatter, Binary};
 
@@ -51,6 +56,7 @@ fn div_rem(x: usize, d: usize) -> (usize, usize)
 /// The bit set has a fixed capacity in terms of enabling bits (and the
 /// capacity can grow using the `grow` method).
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FixedBitSet {
     data: Vec<Block>,
     /// length in bits
@@ -1573,4 +1579,16 @@ fn display_trait() {
 
     assert_eq!(format!("{}", fb), "00101000");
     assert_eq!(format!("{:#}", fb), "0b00101000");
+}
+
+#[test]         
+#[cfg(feature="serde")]
+fn test_serialize() {                                               
+    let mut fb = FixedBitSet::with_capacity(10);
+    fb.put(2);                               
+    fb.put(3);
+    fb.put(6);                                      
+    fb.put(8);                       
+    let serialized = serde_json::to_string(&fb).unwrap();
+    assert_eq!(r#"{"data":[332],"length":10}"#, serialized);
 }
