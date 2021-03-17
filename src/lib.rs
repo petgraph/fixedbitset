@@ -65,6 +65,15 @@ pub struct FixedBitSet {
 
 impl FixedBitSet
 {
+    /// Create a new empty **FixedBitSet**.
+    pub const fn new() -> Self
+    {
+        FixedBitSet {
+            data: Vec::new(),
+            length: 0,
+        }
+    }
+
     /// Create a new **FixedBitSet** with a specific number of bits,
     /// all initially clear.
     pub fn with_capacity(bits: usize) -> Self
