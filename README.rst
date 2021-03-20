@@ -18,6 +18,12 @@ __ https://docs.rs/fixedbitset/
 
 Recent Changes
 --------------
+- 0.4.0
+
+  + `#61`_: Require Rust 1.39.
+  + `#60`_: Add `const` `FixedBitSet::new` consructor by @jakobhellermann.
+  + `#59`_: Add optional `serde` support by @keshavsn.
+
 - 0.3.2
 
   + `#18`_: Optimize `ones` using `trailing_zeroes` by @vks
@@ -106,4 +112,7 @@ option. This file may not be copied, modified, or distributed
 except according to those terms.
 
 .. _#18: https://github.com/petgraph/fixedbitset/pull/18
+.. _#59: https://github.com/petgraph/fixedbitset/pull/59
+.. _#60: https://github.com/petgraph/fixedbitset/pull/60
+.. _#61: https://github.com/petgraph/fixedbitset/pull/61
 
