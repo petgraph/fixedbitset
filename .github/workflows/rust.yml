@@ -16,13 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [1.31.1, 1.36.0, stable, nightly]
-        test_nostd: [0, 1]
-        exclude:
-          - rust: 1.31.1
-            test_nostd: 1
-    env:
-      TEST_NOSTD: ${{ matrix.test_nostd }}
+        rust: [1.39.0, stable, nightly]
 
     steps:
     - uses: actions/checkout@v2
@@ -33,7 +27,7 @@ jobs:
         override: true
     - name: Tests
       run: |
-        ( [[ $TEST_NOSTD = "0" ]] || cargo test -v --no-default-features --tests --lib) &&
+        cargo test -v --no-default-features --tests --lib &&
         cargo build --verbose --features "$FEATURES" &&
         cargo test --verbose --features "$FEATURES" &&
         cargo test --verbose --release --features "$FEATURES"
