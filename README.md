@@ -5,8 +5,8 @@ A simple bitset container for Rust
 
 Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
-![build\_status](https://github.com/petgraph/fixedbitset/workflows/Continuous%20integration/badge.svg?branch=master)
-![crates](https://img.shields.io/crates/v/fixedbitset.svg)
+[![build\_status](https://github.com/petgraph/fixedbitset/workflows/Continuous%20integration/badge.svg?branch=master)](https://github.com/petgraph/fixedbitset/actions)
+[![crates](https://img.shields.io/crates/v/fixedbitset.svg)](https://crates.io/crates/fixedbitset)
 
 # Recent Changes
 
