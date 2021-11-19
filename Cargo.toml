@@ -7,7 +7,7 @@ readme = "README.md"
 
 description = "FixedBitSet is a simple bitset collection"
 documentation = "https://docs.rs/fixedbitset/"
-repository = "https://github.com/bluss/fixedbitset"
+repository = "https://github.com/petgraph/fixedbitset"
 
 keywords = ["container", "data-structure", "bitvec", "bitset", "no_std"]
 categories = ["data-structures"]
