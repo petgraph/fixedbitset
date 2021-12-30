@@ -50,6 +50,9 @@ fn div_rem(x: usize, d: usize) -> (usize, usize) {
 ///
 /// The bit set has a fixed capacity in terms of enabling bits (and the
 /// capacity can grow using the `grow` method).
+/// 
+/// Derived traits depend on both the zeros and ones, so [0,1] is not equal to
+/// [0,1,0].
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FixedBitSet {
