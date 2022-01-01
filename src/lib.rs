@@ -11,7 +11,7 @@
 //!
 //! This version of fixedbitset requires Rust 1.39 or later.
 //!
-#![doc(html_root_url = "https://docs.rs/fixedbitset/0.4.0/")]
+#![doc(html_root_url = "https://docs.rs/fixedbitset/0.4.1/")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]

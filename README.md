@@ -10,6 +10,8 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
+-   0.4.1
+    - Documentation and formatting fixes.
 -   0.4.0
     -   [#61](https://github.com/petgraph/fixedbitset/pull/61): Require
         Rust 1.39.
