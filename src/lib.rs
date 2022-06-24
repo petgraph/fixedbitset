@@ -331,12 +331,12 @@ impl FixedBitSet {
             Some((&block, rem)) => Ones {
                 bitset: block,
                 block_idx: 0,
-                remaining_blocks: rem,
+                remaining_blocks: rem.iter(),
             },
             None => Ones {
                 bitset: 0,
                 block_idx: 0,
-                remaining_blocks: &[],
+                remaining_blocks: [].iter(),
             },
         }
     }
@@ -617,7 +617,7 @@ impl Iterator for Masks {
 pub struct Ones<'a> {
     bitset: Block,
     block_idx: usize,
-    remaining_blocks: &'a [Block],
+    remaining_blocks: std::slice::Iter<'a, Block>,
 }
 
 impl<'a> Iterator for Ones<'a> {
@@ -626,17 +626,13 @@ impl<'a> Iterator for Ones<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while self.bitset == 0 {
-            if self.remaining_blocks.is_empty() {
-                return None;
-            }
-            self.bitset = self.remaining_blocks[0];
-            self.remaining_blocks = &self.remaining_blocks[1..];
-            self.block_idx += 1;
+            self.bitset  = *self.remaining_blocks.next()?;
+            self.block_idx += BITS;
         }
         let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
         let r = self.bitset.trailing_zeros() as usize;
         self.bitset ^= t;
-        Some(self.block_idx * BITS + r)
+        Some(self.block_idx + r)
     }
 }
 
