@@ -103,7 +103,7 @@ impl FixedBitSet {
             data.resize(n_blocks, 0);
         }
         // Disable bits in blocks beyond capacity
-        let end = data.len() * 32;
+        let end = data.len() * BITS;
         for (block, mask) in Masks::new(bits..end, end) {
             unsafe {
                 *data.get_unchecked_mut(block) &= !mask;
@@ -309,7 +309,7 @@ impl FixedBitSet {
         }
     }
 
-    /// View the bitset as a slice of `u32` blocks
+    /// View the bitset as a slice of `Block` blocks
     #[inline]
     pub fn as_slice(&self) -> &[Block] {
         &self.data
