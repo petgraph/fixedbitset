@@ -37,12 +37,12 @@ use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, FromIterator};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 
-const BITS: usize = 32;
-type Block = u32;
+const BITS: usize = std::mem::size_of::<Block>() * 8;
+pub type Block = usize;
 
 #[inline]
-fn div_rem(x: usize, d: usize) -> (usize, usize) {
-    (x / d, x % d)
+fn div_rem(x: usize) -> (usize, usize) {
+    (x / BITS, x % BITS)
 }
 
 /// `FixedBitSet` is a simple fixed size set of bits that each can
@@ -73,7 +73,7 @@ impl FixedBitSet {
     /// Create a new **FixedBitSet** with a specific number of bits,
     /// all initially clear.
     pub fn with_capacity(bits: usize) -> Self {
-        let (mut blocks, rem) = div_rem(bits, BITS);
+        let (mut blocks, rem) = div_rem(bits);
         blocks += (rem > 0) as usize;
         FixedBitSet {
             data: vec![0; blocks],
@@ -95,7 +95,7 @@ impl FixedBitSet {
     /// assert_eq!(format!("{:b}", bs), "0010");
     /// ```
     pub fn with_capacity_and_blocks<I: IntoIterator<Item = Block>>(bits: usize, blocks: I) -> Self {
-        let (mut n_blocks, rem) = div_rem(bits, BITS);
+        let (mut n_blocks, rem) = div_rem(bits);
         n_blocks += (rem > 0) as usize;
         let mut data: Vec<Block> = blocks.into_iter().collect();
         // Pad data with zeros if smaller or truncate if larger
@@ -114,7 +114,7 @@ impl FixedBitSet {
 
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
-        let (mut blocks, rem) = div_rem(bits, BITS);
+        let (mut blocks, rem) = div_rem(bits);
         blocks += (rem > 0) as usize;
         if bits > self.length {
             self.length = bits;
@@ -142,7 +142,7 @@ impl FixedBitSet {
     /// Note: Also available with index syntax: `bitset[bit]`.
     #[inline]
     pub fn contains(&self, bit: usize) -> bool {
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit);
         match self.data.get(block) {
             None => false,
             Some(b) => (b & (1 << i)) != 0,
@@ -168,7 +168,7 @@ impl FixedBitSet {
             bit,
             self.length
         );
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit);
         unsafe {
             *self.data.get_unchecked_mut(block) |= 1 << i;
         }
@@ -185,7 +185,7 @@ impl FixedBitSet {
             bit,
             self.length
         );
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit);
         unsafe {
             let word = self.data.get_unchecked_mut(block);
             let prev = *word & (1 << i) != 0;
@@ -204,7 +204,7 @@ impl FixedBitSet {
             bit,
             self.length
         );
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit);
         unsafe {
             *self.data.get_unchecked_mut(block) ^= 1 << i;
         }
@@ -218,7 +218,7 @@ impl FixedBitSet {
             bit,
             self.length
         );
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit);
         unsafe {
             let elt = self.data.get_unchecked_mut(block);
             if enabled {
@@ -240,7 +240,7 @@ impl FixedBitSet {
             to,
             self.length
         );
-        let (to_block, t) = div_rem(to, BITS);
+        let (to_block, t) = div_rem(to);
         let enabled = self.contains(from);
         unsafe {
             let to_elt = self.data.get_unchecked_mut(to_block);
@@ -311,14 +311,14 @@ impl FixedBitSet {
 
     /// View the bitset as a slice of `u32` blocks
     #[inline]
-    pub fn as_slice(&self) -> &[u32] {
+    pub fn as_slice(&self) -> &[Block] {
         &self.data
     }
 
-    /// View the bitset as a mutable slice of `u32` blocks. Writing past the bitlength in the last
+    /// View the bitset as a mutable slice of `Block` blocks. Writing past the bitlength in the last
     /// will cause `contains` to return potentially incorrect results for bits past the bitlength.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [u32] {
+    pub fn as_mut_slice(&mut self) -> &mut [Block] {
         &mut self.data
     }
 
@@ -572,8 +572,8 @@ impl Masks {
             length
         );
 
-        let (first_block, first_rem) = div_rem(start, BITS);
-        let (last_block, last_rem) = div_rem(end, BITS);
+        let (first_block, first_rem) = div_rem(start);
+        let (last_block, last_rem) = div_rem(end);
 
         Masks {
             first_block: first_block as usize,
@@ -813,7 +813,7 @@ fn it_works() {
 
 #[test]
 fn with_blocks() {
-    let fb = FixedBitSet::with_capacity_and_blocks(50, vec![8u32, 0u32]);
+    let fb = FixedBitSet::with_capacity_and_blocks(50, vec![8, 0]);
     assert!(fb.contains(3));
 
     let ones: Vec<_> = fb.ones().collect();
@@ -822,14 +822,14 @@ fn with_blocks() {
 
 #[test]
 fn with_blocks_too_small() {
-    let mut fb = FixedBitSet::with_capacity_and_blocks(500, vec![8u32, 0u32]);
+    let mut fb = FixedBitSet::with_capacity_and_blocks(500, vec![8, 0]);
     fb.insert(400);
     assert!(fb.contains(400));
 }
 
 #[test]
 fn with_blocks_too_big() {
-    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8u32]);
+    let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8usize]);
 
     // since capacity is 1, 3 shouldn't be set here
     assert!(!fb.contains(3));
