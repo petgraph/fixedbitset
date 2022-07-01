@@ -186,12 +186,12 @@ impl FixedBitSet {
             self.length
         );
         let (block, i) = div_rem(bit, BITS);
-        unsafe {
-            let word = self.data.get_unchecked_mut(block);
+        
+            let word = unsafe {self.data.get_unchecked_mut(block)};
             let prev = *word & (1 << i) != 0;
             *word |= 1 << i;
             prev
-        }
+        
     }
     /// Toggle `bit` (inverting its state).
     ///
@@ -219,14 +219,14 @@ impl FixedBitSet {
             self.length
         );
         let (block, i) = div_rem(bit, BITS);
-        unsafe {
-            let elt = self.data.get_unchecked_mut(block);
+        
+            let elt = unsafe {self.data.get_unchecked_mut(block)};
             if enabled {
                 *elt |= 1 << i;
             } else {
                 *elt &= !(1 << i);
             }
-        }
+        
     }
 
     /// Copies boolean value from specified bit to the specified bit.
@@ -242,14 +242,14 @@ impl FixedBitSet {
         );
         let (to_block, t) = div_rem(to, BITS);
         let enabled = self.contains(from);
-        unsafe {
-            let to_elt = self.data.get_unchecked_mut(to_block);
+        
+            let to_elt = unsafe {self.data.get_unchecked_mut(to_block)};
             if enabled {
                 *to_elt |= 1 << t;
             } else {
                 *to_elt &= !(1 << t);
             }
-        }
+        
     }
 
     /// Count the number of set bits in the given bit range.
