@@ -10,6 +10,9 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
+-   0.4.2
+    - [#79](https://github.com/petgraph/fixedbitset/pull/79): Add `is_clear`,
+    clarify `is_empty` and `len` documentation by \@nicopap.
 -   0.4.1
     - Documentation and formatting fixes.
 -   0.4.0
