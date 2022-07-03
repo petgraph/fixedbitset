@@ -1651,3 +1651,23 @@ fn test_serialize() {
     let serialized = serde_json::to_string(&fb).unwrap();
     assert_eq!(r#"{"data":[332],"length":10}"#, serialized);
 }
+
+#[test]
+fn test_is_clear() {
+    let mut fb = FixedBitSet::with_capacity(0);
+    assert!(fb.is_clear());
+
+    fb.grow(1);
+    assert!(fb.is_clear());
+
+    fb.put(0);
+    assert!(!fb.is_clear());
+
+    fb.grow(42);
+    fb.clear();
+    assert!(fb.is_clear());
+
+    fb.put(17);
+    fb.put(19);
+    assert!(!fb.is_clear());
+}
