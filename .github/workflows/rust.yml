@@ -20,7 +20,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
+    - uses: dtolnay/rust-toolchain@stable
       with:
         profile: minimal
         toolchain: ${{ matrix.rust }}
@@ -31,3 +31,43 @@ jobs:
         cargo build --verbose --features "$FEATURES" &&
         cargo test --verbose --features "$FEATURES" &&
         cargo test --verbose --release --features "$FEATURES"
+
+  clippy:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Run Clippy only on stable
+        rust: [stable]
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        components: clippy
+        override: true
+    - name: Run Clippy
+      run: |
+        cargo clippy
+
+  formatting:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Run formatting checks only on stable
+        rust: [stable]
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt
+        override: true
+    - name: Run Clippy
+      run: |
+        cargo fmt --all --check
