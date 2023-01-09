@@ -38,7 +38,7 @@ jobs:
     strategy:
       matrix:
         # Run Clippy only on stable
-        rust: [stable, nightly]
+        rust: [stable]
 
     steps:
     - uses: actions/checkout@v2
