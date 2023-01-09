@@ -531,8 +531,9 @@ impl<'a> Iterator for Difference<'a> {
     type Item = usize;
 
     #[inline]
+    #[allow(clippy::manual_find)]
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(nxt) = self.iter.next() {
+        for nxt in self.iter.by_ref() {
             if !self.other.contains(nxt) {
                 return Some(nxt);
             }
@@ -569,8 +570,9 @@ impl<'a> Iterator for Intersection<'a> {
     type Item = usize; // the bit position of the '1'
 
     #[inline]
+    #[allow(clippy::manual_find)]
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(nxt) = self.iter.next() {
+        for nxt in self.iter.by_ref() {
             if self.other.contains(nxt) {
                 return Some(nxt);
             }
@@ -619,9 +621,9 @@ impl Masks {
         let (last_block, last_rem) = div_rem(end);
 
         Masks {
-            first_block: first_block as usize,
+            first_block,
             first_mask: Block::max_value() << first_rem,
-            last_block: last_block as usize,
+            last_block,
             last_mask: (Block::max_value() >> 1) >> (BITS - last_rem - 1),
             // this is equivalent to `MAX >> (BITS - x)` with correct semantics when x == 0.
         }
@@ -669,7 +671,7 @@ impl<'a> Iterator for Ones<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         while self.bitset == 0 {
-            self.bitset  = *self.remaining_blocks.next()?;
+            self.bitset = *self.remaining_blocks.next()?;
             self.block_idx += BITS;
         }
         let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
@@ -749,13 +751,13 @@ impl<'a> BitAnd for &'a FixedBitSet {
     }
 }
 
-impl<'a> BitAndAssign for FixedBitSet {
+impl BitAndAssign for FixedBitSet {
     fn bitand_assign(&mut self, other: Self) {
         self.intersect_with(&other);
     }
 }
 
-impl<'a> BitAndAssign<&Self> for FixedBitSet {
+impl BitAndAssign<&Self> for FixedBitSet {
     fn bitand_assign(&mut self, other: &Self) {
         self.intersect_with(other);
     }
@@ -780,13 +782,13 @@ impl<'a> BitOr for &'a FixedBitSet {
     }
 }
 
-impl<'a> BitOrAssign for FixedBitSet {
+impl BitOrAssign for FixedBitSet {
     fn bitor_assign(&mut self, other: Self) {
         self.union_with(&other);
     }
 }
 
-impl<'a> BitOrAssign<&Self> for FixedBitSet {
+impl BitOrAssign<&Self> for FixedBitSet {
     fn bitor_assign(&mut self, other: &Self) {
         self.union_with(other);
     }
@@ -811,13 +813,13 @@ impl<'a> BitXor for &'a FixedBitSet {
     }
 }
 
-impl<'a> BitXorAssign for FixedBitSet {
+impl BitXorAssign for FixedBitSet {
     fn bitxor_assign(&mut self, other: Self) {
         self.symmetric_difference_with(&other);
     }
 }
 
-impl<'a> BitXorAssign<&Self> for FixedBitSet {
+impl BitXorAssign<&Self> for FixedBitSet {
     fn bitxor_assign(&mut self, other: &Self) {
         self.symmetric_difference_with(other);
     }
