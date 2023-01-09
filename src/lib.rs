@@ -856,7 +856,7 @@ mod tests {
 
     #[test]
     fn with_blocks() {
-        let fb = FixedBitSet::with_capacity_and_blocks(50, vec![8u32, 0u32]);
+        let fb = FixedBitSet::with_capacity_and_blocks(50, vec![8, 0]);
         assert!(fb.contains(3));
 
         let ones: Vec<_> = fb.ones().collect();
@@ -865,14 +865,14 @@ mod tests {
 
     #[test]
     fn with_blocks_too_small() {
-        let mut fb = FixedBitSet::with_capacity_and_blocks(500, vec![8u32, 0u32]);
+        let mut fb = FixedBitSet::with_capacity_and_blocks(500, vec![8, 0]);
         fb.insert(400);
         assert!(fb.contains(400));
     }
 
     #[test]
     fn with_blocks_too_big() {
-        let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8u32]);
+        let fb = FixedBitSet::with_capacity_and_blocks(1, vec![8]);
 
         // since capacity is 1, 3 shouldn't be set here
         assert!(!fb.contains(3));
