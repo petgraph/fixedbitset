@@ -3,7 +3,7 @@
 extern crate test;
 extern crate fixedbitset;
 use test::Bencher;
-use fixedbitset::{FixedBitSet};
+use fixedbitset::{FixedBitSet, Block};
 use std::mem::size_of;
 
 #[inline]
@@ -18,8 +18,8 @@ fn iter_ones_using_contains<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
 #[inline]
 fn iter_ones_using_slice_directly<F: FnMut(usize)>(fb: &FixedBitSet, f: &mut F) {
     for (block_idx, &block) in fb.as_slice().iter().enumerate() {
-        let mut bit_pos = block_idx * size_of::<u32>() * 8;
-        let mut block: u32 = block;
+        let mut bit_pos = block_idx * size_of::<Block>() * 8;
+        let mut block: Block = block;
 
         while block != 0 {
             if (block & 1) == 1 {
