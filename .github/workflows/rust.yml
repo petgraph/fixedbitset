@@ -70,4 +70,4 @@ jobs:
         override: true
     - name: Run Clippy
       run: |
-        cargo fmt --all -- check
+        cargo fmt --all --check
