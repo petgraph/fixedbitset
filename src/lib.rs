@@ -34,7 +34,7 @@ use std::fmt::{Binary, Display, Error, Formatter};
 
 pub use range::IndexRange;
 use std::cmp::{Ord, Ordering};
-use std::iter::{Chain, FromIterator};
+use std::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 
 const BITS: usize = std::mem::size_of::<Block>() * 8;
@@ -559,7 +559,15 @@ impl<'a> Iterator for Difference<'a> {
         }
         None
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
+
+// Difference will continue to return None once it first returns None.
+impl<'a> FusedIterator for Difference<'a> {}
 
 /// An iterator producing elements in the symmetric difference of two sets.
 ///
@@ -575,7 +583,15 @@ impl<'a> Iterator for SymmetricDifference<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
+
+// SymmetricDifference will continue to return None once it first returns None.
+impl<'a> FusedIterator for SymmetricDifference<'a> {}
 
 /// An iterator producing elements in the intersection of two sets.
 ///
@@ -598,7 +614,15 @@ impl<'a> Iterator for Intersection<'a> {
         }
         None
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
+
+// Intersection will continue to return None once it first returns None.
+impl<'a> FusedIterator for Intersection<'a> {}
 
 /// An iterator producing elements in the union of two sets.
 ///
@@ -614,7 +638,15 @@ impl<'a> Iterator for Union<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
 }
+
+// Union will continue to return None once it first returns None.
+impl<'a> FusedIterator for Union<'a> {}
 
 struct Masks {
     first_block: usize,
@@ -673,7 +705,19 @@ impl Iterator for Masks {
             Ordering::Greater => None,
         }
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.first_block..=self.last_block).size_hint()
+    }
 }
+
+// Masks will continue to return None once it first returns None.
+impl FusedIterator for Masks {}
+
+// Masks's size_hint implementation is exact. It never returns an
+// unbounded value and always returns an exact number of values.
+impl ExactSizeIterator for Masks {}
 
 /// An  iterator producing the indices of the set bit in a set.
 ///
@@ -698,7 +742,15 @@ impl<'a> Iterator for Ones<'a> {
         self.bitset ^= t;
         Some(self.block_idx + r)
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.remaining_blocks.as_slice().len() * BITS))
+    }
 }
+
+// Ones will continue to return None once it first returns None.
+impl<'a> FusedIterator for Ones<'a> {}
 
 impl Clone for FixedBitSet {
     #[inline]
