@@ -217,6 +217,23 @@ impl FixedBitSet {
         }
     }
 
+    /// Disable `bit`.
+    ///
+    /// **Panics** if **bit** is out of bounds.
+    #[inline]
+    pub fn remove(&mut self, bit: usize) {
+        assert!(
+            bit < self.length,
+            "remove at index {} exceeds fixbitset size {}",
+            bit,
+            self.length
+        );
+        let (block, i) = div_rem(bit);
+        unsafe {
+            *self.data.get_unchecked_mut(block) &= !(1 << i);
+        }
+    }
+
     /// Enable `bit`, and return its previous value.
     ///
     /// **Panics** if **bit** is out of bounds.
@@ -236,6 +253,7 @@ impl FixedBitSet {
             prev
         }
     }
+
     /// Toggle `bit` (inverting its state).
     ///
     /// ***Panics*** if **bit** is out of bounds
@@ -252,6 +270,7 @@ impl FixedBitSet {
             *self.data.get_unchecked_mut(block) ^= 1 << i;
         }
     }
+
     /// **Panics** if **bit** is out of bounds.
     #[inline]
     pub fn set(&mut self, bit: usize, enabled: bool) {
