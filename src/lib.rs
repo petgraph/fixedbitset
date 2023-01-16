@@ -745,7 +745,11 @@ impl<'a> Iterator for Zeroes<'a> {
         self.bitset ^= t;
         let bit = self.block_idx + r;
         // The remaining zeroes beyond the length of the bitset must be excluded.
-        (bit < self.len).then(|| bit)
+        if bit < self.len {
+            Some(bit)
+        } else {
+            None
+        }
     }
 
     #[inline]
