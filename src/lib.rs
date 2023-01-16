@@ -34,7 +34,7 @@ use std::fmt::{Binary, Display, Error, Formatter};
 
 pub use range::IndexRange;
 use std::cmp::{Ord, Ordering};
-use std::iter::{Chain, FromIterator};
+use std::iter::{Chain, FromIterator, FusedIterator};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 
 const BITS: usize = std::mem::size_of::<Block>() * 8;
@@ -403,6 +403,27 @@ impl FixedBitSet {
         }
     }
 
+    /// Iterates over all disabled bits.
+    ///
+    /// Iterator element is the index of the `0` bit, type `usize`.
+    #[inline]
+    pub fn zeroes(&self) -> Zeroes {
+        match self.as_slice().split_first() {
+            Some((&block, rem)) => Zeroes {
+                bitset: !block,
+                block_idx: 0,
+                len: self.len(),
+                remaining_blocks: rem.iter(),
+            },
+            None => Zeroes {
+                bitset: !0,
+                block_idx: 0,
+                len: self.len(),
+                remaining_blocks: [].iter(),
+            },
+        }
+    }
+
     /// Returns a lazy iterator over the intersection of two `FixedBitSet`s
     pub fn intersection<'a>(&'a self, other: &'a FixedBitSet) -> Intersection<'a> {
         Intersection {
@@ -699,6 +720,42 @@ impl<'a> Iterator for Ones<'a> {
         Some(self.block_idx + r)
     }
 }
+
+/// An  iterator producing the indices of the set bit in a set.
+///
+/// This struct is created by the [`FixedBitSet::ones`] method.
+pub struct Zeroes<'a> {
+    bitset: Block,
+    block_idx: usize,
+    len: usize,
+    remaining_blocks: std::slice::Iter<'a, Block>,
+}
+
+impl<'a> Iterator for Zeroes<'a> {
+    type Item = usize; // the bit position of the '0'
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.bitset == 0 {
+            self.bitset = !*self.remaining_blocks.next()?;
+            self.block_idx += BITS;
+        }
+        let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
+        let r = self.bitset.trailing_zeros() as usize;
+        self.bitset ^= t;
+        let bit = self.block_idx + r;
+        // The remaining zeroes beyond the length of the bitset must be excluded.
+        (bit >= self.len).then(|| bit)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (0, Some(self.len))
+    }
+}
+
+// Zeroes will stop returning Some when exhausted.
+impl<'a> FusedIterator for Zeroes<'a> {}
 
 impl Clone for FixedBitSet {
     #[inline]
