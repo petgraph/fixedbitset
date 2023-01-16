@@ -13,6 +13,7 @@
 //!
 #![doc(html_root_url = "https://docs.rs/fixedbitset/0.4.2/")]
 #![cfg_attr(not(feature = "std"), no_std)]
+#![forbid(clippy::undocumented_unsafe_blocks)]
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -105,9 +106,9 @@ impl FixedBitSet {
         // Disable bits in blocks beyond capacity
         let end = data.len() * BITS;
         for (block, mask) in Masks::new(bits..end, end) {
-            unsafe {
-                *data.get_unchecked_mut(block) &= !mask;
-            }
+            // SAFETY: Masks cannot return a block index that is out of range.
+            let block = unsafe { data.get_unchecked_mut(block) };
+            *block &= !mask;
         }
         FixedBitSet { data, length: bits }
     }
@@ -195,7 +196,7 @@ impl FixedBitSet {
     /// Clear all bits.
     #[inline]
     pub fn clear(&mut self) {
-        for elt in &mut self.data[..] {
+        for elt in &mut self.data {
             *elt = 0
         }
     }
@@ -212,6 +213,7 @@ impl FixedBitSet {
             self.length
         );
         let (block, i) = div_rem(bit);
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.data.get_unchecked_mut(block) |= 1 << i;
         }
@@ -229,6 +231,7 @@ impl FixedBitSet {
             self.length
         );
         let (block, i) = div_rem(bit);
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.data.get_unchecked_mut(block) &= !(1 << i);
         }
@@ -246,6 +249,7 @@ impl FixedBitSet {
             self.length
         );
         let (block, i) = div_rem(bit);
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             let word = self.data.get_unchecked_mut(block);
             let prev = *word & (1 << i) != 0;
@@ -266,6 +270,7 @@ impl FixedBitSet {
             self.length
         );
         let (block, i) = div_rem(bit);
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.data.get_unchecked_mut(block) ^= 1 << i;
         }
@@ -281,13 +286,12 @@ impl FixedBitSet {
             self.length
         );
         let (block, i) = div_rem(bit);
-        unsafe {
-            let elt = self.data.get_unchecked_mut(block);
-            if enabled {
-                *elt |= 1 << i;
-            } else {
-                *elt &= !(1 << i);
-            }
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
+        let elt = unsafe { self.data.get_unchecked_mut(block) };
+        if enabled {
+            *elt |= 1 << i;
+        } else {
+            *elt &= !(1 << i);
         }
     }
 
@@ -304,13 +308,12 @@ impl FixedBitSet {
         );
         let (to_block, t) = div_rem(to);
         let enabled = self.contains(from);
-        unsafe {
-            let to_elt = self.data.get_unchecked_mut(to_block);
-            if enabled {
-                *to_elt |= 1 << t;
-            } else {
-                *to_elt &= !(1 << t);
-            }
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
+        let to_elt = unsafe { self.data.get_unchecked_mut(to_block) };
+        if enabled {
+            *to_elt |= 1 << t;
+        } else {
+            *to_elt &= !(1 << t);
         }
     }
 
@@ -322,8 +325,9 @@ impl FixedBitSet {
     #[inline]
     pub fn count_ones<T: IndexRange>(&self, range: T) -> usize {
         Masks::new(range, self.length)
-            .map(|(block, mask)| unsafe {
-                let value = *self.data.get_unchecked(block);
+            .map(|(block, mask)| {
+                // SAFETY: Masks cannot return a block index that is out of range.
+                let value = unsafe { *self.data.get_unchecked(block) };
                 (value & mask).count_ones() as usize
             })
             .sum()
@@ -337,12 +341,12 @@ impl FixedBitSet {
     #[inline]
     pub fn set_range<T: IndexRange>(&mut self, range: T, enabled: bool) {
         for (block, mask) in Masks::new(range, self.length) {
-            unsafe {
-                if enabled {
-                    *self.data.get_unchecked_mut(block) |= mask;
-                } else {
-                    *self.data.get_unchecked_mut(block) &= !mask;
-                }
+            // SAFETY: Masks cannot return a block index that is out of range.
+            let block = unsafe { self.data.get_unchecked_mut(block) };
+            if enabled {
+                *block |= mask;
+            } else {
+                *block &= !mask;
             }
         }
     }
@@ -365,9 +369,9 @@ impl FixedBitSet {
     #[inline]
     pub fn toggle_range<T: IndexRange>(&mut self, range: T) {
         for (block, mask) in Masks::new(range, self.length) {
-            unsafe {
-                *self.data.get_unchecked_mut(block) ^= mask;
-            }
+            // SAFETY: Masks cannot return a block index that is out of range.
+            let block = unsafe { self.data.get_unchecked_mut(block) };
+            *block ^= mask;
         }
     }
 
