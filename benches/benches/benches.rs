@@ -91,6 +91,19 @@ fn insert(c: &mut Criterion) {
     });
 }
 
+fn grow_and_insert(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb = FixedBitSet::with_capacity(N);
+
+    c.bench_function("grow_and_insert", |b| {
+        b.iter(|| {
+            for i in 0..N {
+                fb.grow_and_insert(i);
+            }
+        })
+    });
+}
+
 fn union_with(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb_a = FixedBitSet::with_capacity(N);
@@ -159,5 +172,6 @@ criterion_group!(
     symmetric_difference_with,
     count_ones,
     clear,
+    grow_and_insert,
 );
 criterion_main!(benches);
