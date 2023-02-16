@@ -123,7 +123,11 @@ impl FixedBitSet {
         }
     }
 
-    /// First grow to bits just like `grow`, then enable the bit
+    /// Grows the internal size of the bitset before inserting a bit
+    ///
+    /// Unlike `insert`, this cannot panic, but may allocate if the bit is outside of the existing buffer's range.
+    ///
+    /// This is faster than calling `grow` then `insert` in succession.
     #[inline]
     pub fn grow_and_insert(&mut self, bits: usize) {
         self.grow(bits + 1);
