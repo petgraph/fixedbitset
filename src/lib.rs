@@ -123,6 +123,22 @@ impl FixedBitSet {
         }
     }
 
+    /// Grows the internal size of the bitset before inserting a bit
+    ///
+    /// Unlike `insert`, this cannot panic, but may allocate if the bit is outside of the existing buffer's range.
+    ///
+    /// This is faster than calling `grow` then `insert` in succession.
+    #[inline]
+    pub fn grow_and_insert(&mut self, bits: usize) {
+        self.grow(bits + 1);
+
+        let (blocks, rem) = div_rem(bits);
+        // SAFETY: The above grow ensures that the block is inside the Vec's allocation.
+        unsafe {
+            *self.data.get_unchecked_mut(blocks) |= 1 << rem;
+        }
+    }
+
     /// The length of the [`FixedBitSet`] in bits.
     ///
     /// Note: `len` includes both set and unset bits.
@@ -1041,6 +1057,18 @@ mod tests {
         }
         fb.set(64, true);
         assert!(fb.contains(64));
+    }
+
+    #[test]
+    fn grow_and_insert() {
+        let mut fb = FixedBitSet::default();
+        for i in 0..100 {
+            if i % 3 == 0 {
+                fb.grow_and_insert(i);
+            }
+        }
+
+        assert_eq!(fb.count_ones(..), 34);
     }
 
     #[test]
