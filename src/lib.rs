@@ -490,8 +490,8 @@ impl FixedBitSet {
 
     /// In-place union of two `FixedBitSet`s.
     ///
-    /// This method will not check if the capacities are equal and may 
-    /// cause undefined behavior if they are not.
+    /// This method will not grow the capacity of `self` to match `other`'s.
+    /// If `other`'s capacity is larger than `self`'s, the extra bits will be ignored.
     pub fn union_with_unchecked(&mut self, other: &FixedBitSet) {
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
             *x |= *y; 
