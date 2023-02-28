@@ -112,6 +112,14 @@ fn union_with(c: &mut Criterion) {
     c.bench_function("union_with/1m", |b| b.iter(|| fb_a.union_with(&fb_b)));
 }
 
+fn union_with_unchecked(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let fb_b = FixedBitSet::with_capacity(N);
+
+    c.bench_function("union_with_unchecked/1m", |b| b.iter(|| fb_a.union_with_unchecked(&fb_b)));
+}
+
 fn intersect_with(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb_a = FixedBitSet::with_capacity(N);
@@ -169,6 +177,7 @@ criterion_group!(
     intersect_with,
     difference_with,
     union_with,
+    union_with_unchecked,
     symmetric_difference_with,
     count_ones,
     clear,
