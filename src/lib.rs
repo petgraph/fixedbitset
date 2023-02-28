@@ -1393,6 +1393,96 @@ mod tests {
     }
 
     #[test]
+    fn union_unchecked() {
+        let a_len = 100;
+        let b_len = 100;
+
+        let mut a = FixedBitSet::with_capacity(a_len);
+        let mut b = FixedBitSet::with_capacity(b_len);
+
+        for i in 0..b_len {
+            if i % 2 == 0 {
+                b.set(i, true);
+            }
+        }
+
+        a.union_with_unchecked(&b);
+        for i in 0..b_len {
+            if i % 2 == 0 {
+                assert!(a.contains(i));
+            } else {
+                assert!(!a.contains(i));
+            }
+        }
+    }
+
+    #[test]
+    fn union_unchecked_a_lt_b() {
+        let a_len = 50;
+        let b_len = 100;
+
+        let mut a = FixedBitSet::with_capacity(a_len);
+        let mut b = FixedBitSet::with_capacity(b_len);
+
+        // fill evens in `b`
+        for i in 0..b_len {
+            if i % 2 == 0 {
+                b.set(i, true);
+            }
+        }
+
+        // perform union
+        a.union_with_unchecked(&b);
+
+        // validate evens in `a`
+        for i in 0..a_len {
+            if i % 2 == 0 {
+                assert!(a.contains(i));
+            } else {
+                assert!(!a.contains(i));
+            }
+        }
+
+        // validate length of `a` is unchanged
+        assert_eq!(a.len(), a_len);
+    }
+
+    #[test]
+    fn union_unchecked_a_gt_b() {
+        let a_len = 100;
+        let b_len = 50;
+
+        let mut a = FixedBitSet::with_capacity(a_len);
+        let mut b = FixedBitSet::with_capacity(b_len);
+
+        // fill evens in `b`
+        for i in 0..b_len {
+            if i % 2 == 0 {
+                b.set(i, true);
+            }
+        }
+
+        // perform union
+        a.union_with_unchecked(&b);
+
+        // validate evens in `a`
+        for i in 0..a_len {
+            if i >= b_len {
+                assert!(!a.contains(i));
+            } else {
+                if i % 2 == 0 {
+                    assert!(a.contains(i));
+                } else {
+                    assert!(!a.contains(i));
+                }
+            }
+        }
+
+        // validate length of `a` is unchanged
+        assert_eq!(a.len(), a_len);
+    }
+
+    #[test]
     fn difference() {
         let a_len = 83;
         let b_len = 151;
