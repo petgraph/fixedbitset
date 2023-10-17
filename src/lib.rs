@@ -814,31 +814,31 @@ impl<'a> Iterator for Ones<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        //let mut active_block: &mut Block = &mut self.bitset_front;
         while self.bitset_front == 0 {
             match self.remaining_blocks.next() {
+                Some(next_block) => {
+                self.bitset_front = *next_block;
+                self.block_idx_front += BITS;
+            }
                 None => {
                     if self.bitset_back != 0 {
                         self.bitset_front = 0;
-                        self.block_idx_front = self.block_idx_back;
-                        let t = self.bitset_back & (0 as Block).wrapping_sub(self.bitset_back);
-                        let r = self.bitset_back.trailing_zeros() as usize;
-                        self.bitset_back ^= t;
-                        return Some(self.block_idx_back + r);
+                        let bit_idx = self.bitset_back.trailing_zeros();
+                        let mask = !((1 as Block) << (bit_idx));
+                        self.bitset_back.bitand_assign(mask);
+                        return Some(self.block_idx_back + bit_idx as Block);
                     } else {
                         return None;
                     }
                 }
-                Some(next_block) => {
-                    self.bitset_front = *next_block;
-                    self.block_idx_front += BITS;
-                }
+
             };
         }
-        let t = self.bitset_front & (0 as Block).wrapping_sub(self.bitset_front);
-        let r = self.bitset_front.trailing_zeros() as usize;
-        self.bitset_front ^= t;
-        Some(self.block_idx_front + r)
+        let bit_idx = self.bitset_front.trailing_zeros();
+        let mask = !((1 as Block) << (bit_idx));
+        self.bitset_front.bitand_assign(mask);
+
+        Some(self.block_idx_front + bit_idx as Block)
     }
 
     #[inline]
