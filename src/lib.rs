@@ -410,14 +410,21 @@ impl FixedBitSet {
     #[inline]
     pub fn ones(&self) -> Ones {
         match self.as_slice().split_first() {
-            Some((&block, rem)) => Ones {
-                bitset: block,
-                block_idx: 0,
-                remaining_blocks: rem.iter(),
-            },
+            Some((&first_block, rem)) => {
+                let (&last_block, rem) = rem.split_last().unwrap_or((&0, rem));
+                Ones {
+                    bitset_front: first_block,
+                    bitset_back: last_block,
+                    block_idx_front: 0,
+                    block_idx_back: self.length,
+                    remaining_blocks: rem.iter(),
+                }
+            }
             None => Ones {
-                bitset: 0,
-                block_idx: 0,
+                bitset_front: 0,
+                bitset_back: 0,
+                block_idx_front: 0,
+                block_idx_back: 0,
                 remaining_blocks: [].iter(),
             },
         }
@@ -764,9 +771,17 @@ impl ExactSizeIterator for Masks {}
 ///
 /// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Ones<'a> {
-    bitset: Block,
-    block_idx: usize,
+    bitset_front: Block,
+    bitset_back: Block,
+    block_idx_front: usize,
+    block_idx_back: usize,
     remaining_blocks: std::slice::Iter<'a, Block>,
+}
+
+impl<'a> DoubleEndedIterator for Ones<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
 }
 
 impl<'a> Iterator for Ones<'a> {
@@ -774,18 +789,31 @@ impl<'a> Iterator for Ones<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        while self.bitset == 0 {
-            self.bitset = *self.remaining_blocks.next()?;
-            self.block_idx += BITS;
+        let mut active_block: &mut Block = &mut self.bitset_front;
+        while *active_block == 0 {
+            match self.remaining_blocks.next() {
+                None => {
+                    if self.bitset_back != 0 {
+                        active_block = &mut self.bitset_back;
+                    } else {
+                        return None;
+                    }
+                }
+                Some(next_block) => {
+                    *active_block = *next_block;
+                }
+            };
+            self.block_idx_front += BITS;
         }
-        let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
-        let r = self.bitset.trailing_zeros() as usize;
-        self.bitset ^= t;
-        Some(self.block_idx + r)
+        let t = *active_block & (0 as Block).wrapping_sub(*active_block);
+        let r = active_block.trailing_zeros() as usize;
+        self.bitset_front ^= t;
+        Some(self.block_idx_front + r)
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
+        // todo check if + 1 or +2 is needed
         (0, Some(self.remaining_blocks.as_slice().len() * BITS))
     }
 }
