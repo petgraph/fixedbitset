@@ -1188,6 +1188,35 @@ mod tests {
         assert_eq!(fb.count_ones(8..), 8);
     }
 
+    /* Helper for testing double ended iterator */
+    struct Alternating<I> {
+        iter: I,
+        front: bool,
+    }
+
+    impl<I: Iterator + DoubleEndedIterator> Iterator for Alternating<I> {
+        type Item = I::Item;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.front {
+                self.front = false;
+                self.iter.next()
+            } else {
+                self.front = true;
+                self.iter.next_back()
+            }
+        }
+    }
+    trait AlternatingExt: Iterator + DoubleEndedIterator + Sized {
+        fn alternate(self) -> Alternating<Self> {
+            Alternating {
+                iter: self,
+                front: true,
+            }
+        }
+    }
+    impl<I: Iterator + DoubleEndedIterator> AlternatingExt for I {}
+
     #[test]
     fn ones() {
         let mut fb = FixedBitSet::with_capacity(100);
@@ -1203,12 +1232,15 @@ mod tests {
 
         let ones: Vec<_> = fb.ones().collect();
         let ones_rev: Vec<_> = fb.ones().rev().collect();
+        let ones_alternating: Vec<_> = fb.ones().alternate().collect();
 
         let mut known_result = vec![7, 11, 12, 35, 40, 50, 77, 95, 99];
 
         assert_eq!(known_result, ones);
         known_result.reverse();
         assert_eq!(known_result, ones_rev);
+        let known_result: Vec<_> = known_result.into_iter().rev().alternate().collect();
+        assert_eq!(known_result, ones_alternating);
     }
 
     #[test]
@@ -1221,7 +1253,13 @@ mod tests {
             }
             let ones: Vec<_> = fb.ones().collect();
             let expected: Vec<_> = (from..to).collect();
+            let ones_rev: Vec<_> = fb.ones().rev().collect();
+            let expected_rev: Vec<_> = (from..to).rev().collect();
+            let ones_rev_alt: Vec<_> = fb.ones().rev().alternate().collect();
+            let expected_rev_alt: Vec<_> = (from..to).rev().alternate().collect();
             assert_eq!(expected, ones);
+            assert_eq!(expected_rev, ones_rev);
+            assert_eq!(expected_rev_alt, ones_rev_alt);
         }
 
         for i in 0..100 {
