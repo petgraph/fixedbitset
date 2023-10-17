@@ -55,6 +55,25 @@ fn iter_ones_all_zeros(c: &mut Criterion) {
     });
 }
 
+fn iter_ones_sparse(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb = FixedBitSet::with_capacity(N);
+    for i in 0..N{
+        if i % 2 == 0{
+            fb.insert(i);
+        }
+    }
+    c.bench_function("iter_ones/sparse", |b| {
+        b.iter(|| {
+            let mut count = 0;
+            for _ in fb.ones() {
+                count += 1;
+            }
+            count
+        })
+    });
+}
+
 fn iter_ones_all_ones(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -163,6 +182,7 @@ criterion_group!(
     iter_ones_using_contains_all_zeros,
     iter_ones_using_contains_all_ones,
     iter_ones_all_zeros,
+    iter_ones_sparse,
     iter_ones_all_ones,
     insert_range,
     insert,
