@@ -416,7 +416,7 @@ impl FixedBitSet {
                     bitset_front: first_block,
                     bitset_back: last_block,
                     block_idx_front: 0,
-                    block_idx_back: self.length,
+                    block_idx_back: (1 + rem.len()) * BITS,
                     remaining_blocks: rem.iter(),
                 }
             }
@@ -780,7 +780,32 @@ pub struct Ones<'a> {
 
 impl<'a> DoubleEndedIterator for Ones<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        todo!()
+        let mut active_block: &mut Block = &mut self.bitset_back;
+        while *active_block == 0 {
+            match self.remaining_blocks.next_back() {
+                None => {
+                    if self.bitset_front != 0 {
+                        self.bitset_back = 0;
+                        self.block_idx_back = self.block_idx_front;
+                        active_block = &mut self.bitset_front;
+                    } else {
+                        return None;
+                    }
+                }
+                Some(next_block) => {
+                    *active_block = *next_block;
+                    self.block_idx_back -= BITS;
+                }
+            };
+        }
+        /* Identify the first non zero bit */
+        let bit_idx = active_block.leading_zeros();
+
+        /* set that bit to zero */
+        let mask = !((1 as Block) << (BITS as u32 - bit_idx - 1));
+        active_block.bitand_assign(mask);
+
+        Some(self.block_idx_back + BITS - bit_idx as usize - 1)
     }
 }
 
@@ -794,6 +819,8 @@ impl<'a> Iterator for Ones<'a> {
             match self.remaining_blocks.next() {
                 None => {
                     if self.bitset_back != 0 {
+                        self.bitset_front = 0;
+                        self.block_idx_front = self.block_idx_back;
                         active_block = &mut self.bitset_back;
                     } else {
                         return None;
@@ -801,13 +828,13 @@ impl<'a> Iterator for Ones<'a> {
                 }
                 Some(next_block) => {
                     *active_block = *next_block;
+                    self.block_idx_front += BITS;
                 }
             };
-            self.block_idx_front += BITS;
         }
         let t = *active_block & (0 as Block).wrapping_sub(*active_block);
         let r = active_block.trailing_zeros() as usize;
-        self.bitset_front ^= t;
+        *active_block ^= t;
         Some(self.block_idx_front + r)
     }
 
@@ -1175,8 +1202,13 @@ mod tests {
         fb.set(99, true);
 
         let ones: Vec<_> = fb.ones().collect();
+        let ones_rev: Vec<_> = fb.ones().rev().collect();
 
-        assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
+        let mut known_result = vec![7, 11, 12, 35, 40, 50, 77, 95, 99];
+
+        assert_eq!(known_result, ones);
+        known_result.reverse();
+        assert_eq!(known_result, ones_rev);
     }
 
     #[test]
@@ -1659,7 +1691,7 @@ mod tests {
         let b = b_ones.iter().cloned().collect::<FixedBitSet>();
         a |= b;
         let res = a.ones().collect::<Vec<usize>>();
-        assert!(res == a_or_b);
+        assert_eq!(res, a_or_b);
     }
 
     #[test]
