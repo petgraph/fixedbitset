@@ -794,7 +794,7 @@ impl<'a> Ones<'a> {
     }
 
     #[inline]
-    pub fn first_positive_bit_and_unset(n: &mut Block) -> usize {
+    fn first_positive_bit_and_unset(n: &mut Block) -> usize {
         /* Identify the first non zero bit */
         let bit_idx = n.leading_zeros();
 

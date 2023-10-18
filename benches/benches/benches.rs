@@ -90,6 +90,22 @@ fn iter_ones_all_ones(c: &mut Criterion) {
     });
 }
 
+fn iter_ones_all_ones_rev(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb = FixedBitSet::with_capacity(N);
+    fb.insert_range(..);
+
+    c.bench_function("iter_ones/all_ones", |b| {
+        b.iter(|| {
+            let mut count = 0;
+            for _ in fb.ones().rev() {
+                count += 1;
+            }
+            count
+        })
+    });
+}
+
 fn insert_range(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -174,18 +190,6 @@ fn count_ones(c: &mut Criterion) {
 
     c.bench_function("count_ones/1m", |b| {
         b.iter(|| black_box(fb_a.count_ones(..)))
-    });
-}
-
-fn bitchange(c: &mut Criterion) {
-    let mut val: fixedbitset::Block = 1234;
-    c.bench_function("bitops/change_last_bit", |b| {
-        b.iter(|| {
-            val += 1;
-            val = val.rotate_left(10);
-            fixedbitset::Ones::last_positive_bit_and_unset(&mut val);
-            black_box(val)
-        })
     });
 }
 
