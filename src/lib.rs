@@ -838,6 +838,8 @@ impl<'a> Iterator for Ones<'a> {
                 }
                 None => {
                     if self.bitset_back != 0 {
+                        // not needed for iteration, but for size_hint
+                        self.block_idx_front = self.block_idx_back;
                         self.bitset_front = 0;
 
                         return Some(
@@ -856,8 +858,10 @@ impl<'a> Iterator for Ones<'a> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // todo check if + 1 or +2 is needed
-        (0, Some(self.remaining_blocks.as_slice().len() * BITS))
+        (
+            0,
+            (Some(self.block_idx_back - self.block_idx_front + 2 * BITS)),
+        )
     }
 }
 
@@ -1205,14 +1209,19 @@ mod tests {
     }
 
     /* Helper for testing double ended iterator */
+    #[cfg(test)]
     struct Alternating<I> {
         iter: I,
         front: bool,
     }
 
+    #[cfg(test)]
     impl<I: Iterator + DoubleEndedIterator> Iterator for Alternating<I> {
         type Item = I::Item;
 
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            self.iter.size_hint()
+        }
         fn next(&mut self) -> Option<Self::Item> {
             if self.front {
                 self.front = false;
@@ -1223,6 +1232,7 @@ mod tests {
             }
         }
     }
+    #[cfg(test)]
     trait AlternatingExt: Iterator + DoubleEndedIterator + Sized {
         fn alternate(self) -> Alternating<Self> {
             Alternating {
@@ -1231,6 +1241,8 @@ mod tests {
             }
         }
     }
+
+    #[cfg(test)]
     impl<I: Iterator + DoubleEndedIterator> AlternatingExt for I {}
 
     #[test]
@@ -1257,6 +1269,50 @@ mod tests {
         assert_eq!(known_result, ones_rev);
         let known_result: Vec<_> = known_result.into_iter().rev().alternate().collect();
         assert_eq!(known_result, ones_alternating);
+    }
+
+    #[test]
+    fn size_hint() {
+        for s in 0..1000 {
+            let mut bitset = FixedBitSet::with_capacity(s);
+            bitset.insert_range(..);
+            let mut t = s;
+            let mut iter = bitset.ones().rev();
+            loop {
+                match iter.next() {
+                    None => break,
+                    Some(_) => {
+                        t -= 1;
+                        assert!(iter.size_hint().1.unwrap() >= t);
+                        // factor two, because we have first block and last block
+                        assert!(iter.size_hint().1.unwrap() <= t + 2 * BITS);
+                    }
+                }
+            }
+            assert_eq!(t, 0);
+        }
+    }
+
+    #[test]
+    fn size_hint_alternate() {
+        for s in 0..1000 {
+            let mut bitset = FixedBitSet::with_capacity(s);
+            bitset.insert_range(..);
+            let mut t = s;
+            let mut iter = bitset.ones().alternate();
+            loop {
+                match iter.next() {
+                    None => break,
+                    Some(_) => {
+                        t -= 1;
+                        //println!("{:?} < {}", iter.size_hint(), t);
+                        assert!(iter.size_hint().1.unwrap() >= t);
+                        assert!(iter.size_hint().1.unwrap() <= t + 3 * BITS);
+                    }
+                }
+            }
+            assert_eq!(t, 0);
+        }
     }
 
     #[test]
