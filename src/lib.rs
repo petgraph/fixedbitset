@@ -792,36 +792,48 @@ impl<'a> Ones<'a> {
 
         position as usize
     }
+
+    #[inline]
+    pub fn first_positive_bit_and_unset(n: &mut Block) -> usize {
+        /* Identify the first non zero bit */
+        let bit_idx = n.leading_zeros();
+
+        /* set that bit to zero */
+        let mask = !((1 as Block) << (BITS as u32 - bit_idx - 1));
+        n.bitand_assign(mask);
+
+        bit_idx as usize
+    }
 }
 
 impl<'a> DoubleEndedIterator for Ones<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let mut active_block: &mut Block = &mut self.bitset_back;
-        while *active_block == 0 {
+        while self.bitset_back == 0 {
             match self.remaining_blocks.next_back() {
                 None => {
                     if self.bitset_front != 0 {
                         self.bitset_back = 0;
                         self.block_idx_back = self.block_idx_front;
-                        active_block = &mut self.bitset_front;
+                        return Some(
+                            self.block_idx_front + BITS
+                                - Self::first_positive_bit_and_unset(&mut self.bitset_front)
+                                - 1,
+                        );
                     } else {
                         return None;
                     }
                 }
                 Some(next_block) => {
-                    *active_block = *next_block;
+                    self.bitset_back = *next_block;
                     self.block_idx_back -= BITS;
                 }
             };
         }
-        /* Identify the first non zero bit */
-        let bit_idx = active_block.leading_zeros();
 
-        /* set that bit to zero */
-        let mask = !((1 as Block) << (BITS as u32 - bit_idx - 1));
-        active_block.bitand_assign(mask);
-
-        Some(self.block_idx_back + BITS - bit_idx as usize - 1)
+        Some(
+            self.block_idx_back - Self::first_positive_bit_and_unset(&mut self.bitset_back) + BITS
+                - 1,
+        )
     }
 }
 
@@ -1089,6 +1101,12 @@ mod tests {
         assert!(fb.contains(3));
 
         let ones: Vec<_> = fb.ones().collect();
+        assert_eq!(ones.len(), 1);
+
+        let ones: Vec<_> = fb.ones().rev().collect();
+        assert_eq!(ones.len(), 1);
+
+        let ones: Vec<_> = fb.ones().rev().alternate().collect();
         assert_eq!(ones.len(), 1);
     }
 
