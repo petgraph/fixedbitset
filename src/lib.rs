@@ -779,6 +779,7 @@ pub struct Ones<'a> {
 }
 
 impl<'a> Ones<'a> {
+    #[inline]
     pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
         // Find the last set bit using x & -x
         let last_bit = *n & n.wrapping_neg();
@@ -786,7 +787,7 @@ impl<'a> Ones<'a> {
         // Find the position of the last set bit
         let position = last_bit.trailing_zeros();
 
-        // Unset the last set bit using x & (x - 1)
+        // Unset the last set bit
         *n &= *n - 1;
 
         position as usize
