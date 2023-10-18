@@ -58,8 +58,8 @@ fn iter_ones_all_zeros(c: &mut Criterion) {
 fn iter_ones_sparse(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
-    for i in 0..N{
-        if i % 2 == 0{
+    for i in 0..N {
+        if i % 2 == 0 {
             fb.insert(i);
         }
     }
@@ -177,8 +177,21 @@ fn count_ones(c: &mut Criterion) {
     });
 }
 
+fn bitchange(c: &mut Criterion) {
+    let mut val: fixedbitset::Block = 1234;
+    c.bench_function("bitops/change_last_bit", |b| {
+        b.iter(|| {
+            val += 1;
+            val = val.rotate_left(10);
+            fixedbitset::Ones::last_positive_bit_and_unset(&mut val);
+            black_box(val)
+        })
+    });
+}
+
 criterion_group!(
     benches,
+    bitchange,
     iter_ones_using_contains_all_zeros,
     iter_ones_using_contains_all_ones,
     iter_ones_all_zeros,

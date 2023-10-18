@@ -778,6 +778,21 @@ pub struct Ones<'a> {
     remaining_blocks: std::slice::Iter<'a, Block>,
 }
 
+impl<'a> Ones<'a> {
+    pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
+        // Find the last set bit using x & -x
+        let last_bit = *n & n.wrapping_neg();
+
+        // Find the position of the last set bit
+        let position = last_bit.trailing_zeros();
+
+        // Unset the last set bit using x & (x - 1)
+        *n &= *n - 1;
+
+        position as usize
+    }
+}
+
 impl<'a> DoubleEndedIterator for Ones<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let mut active_block: &mut Block = &mut self.bitset_back;
@@ -817,28 +832,25 @@ impl<'a> Iterator for Ones<'a> {
         while self.bitset_front == 0 {
             match self.remaining_blocks.next() {
                 Some(next_block) => {
-                self.bitset_front = *next_block;
-                self.block_idx_front += BITS;
-            }
+                    self.bitset_front = *next_block;
+                    self.block_idx_front += BITS;
+                }
                 None => {
                     if self.bitset_back != 0 {
                         self.bitset_front = 0;
-                        let bit_idx = self.bitset_back.trailing_zeros();
-                        let mask = !((1 as Block) << (bit_idx));
-                        self.bitset_back.bitand_assign(mask);
-                        return Some(self.block_idx_back + bit_idx as Block);
+
+                        return Some(
+                            self.block_idx_back
+                                + Self::last_positive_bit_and_unset(&mut self.bitset_back),
+                        );
                     } else {
                         return None;
                     }
                 }
-
             };
         }
-        let bit_idx = self.bitset_front.trailing_zeros();
-        let mask = !((1 as Block) << (bit_idx));
-        self.bitset_front.bitand_assign(mask);
 
-        Some(self.block_idx_front + bit_idx as Block)
+        Some(self.block_idx_front + Self::last_positive_bit_and_unset(&mut self.bitset_front))
     }
 
     #[inline]
