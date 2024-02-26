@@ -28,7 +28,7 @@ mod range;
 #[cfg(feature = "serde")]
 extern crate serde;
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+mod serde_impl;
 
 use std::fmt::Write;
 use std::fmt::{Binary, Display, Error, Formatter};
@@ -38,7 +38,9 @@ use std::cmp::{Ord, Ordering};
 use std::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 
-const BITS: usize = std::mem::size_of::<Block>() * 8;
+pub(crate) const BITS: usize = std::mem::size_of::<Block>() * 8;
+pub(crate) const BYTES: usize = std::mem::size_of::<Block>();
+
 pub type Block = usize;
 
 #[inline]
@@ -55,11 +57,10 @@ fn div_rem(x: usize) -> (usize, usize) {
 /// Derived traits depend on both the zeros and ones, so [0,1] is not equal to
 /// [0,1,0].
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct FixedBitSet {
-    data: Vec<Block>,
+    pub(crate) data: Vec<Block>,
     /// length in bits
-    length: usize,
+    pub(crate) length: usize,
 }
 
 impl FixedBitSet {
@@ -1806,8 +1807,9 @@ mod tests {
         assert_eq!(format!("{:#}", fb), "0b00101000");
     }
 
+    // TODO: Rewite this test to be platform agnostic.
     #[test]
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", target_pointer_width = "64"))]
     fn test_serialize() {
         let mut fb = FixedBitSet::with_capacity(10);
         fb.put(2);
@@ -1815,7 +1817,7 @@ mod tests {
         fb.put(6);
         fb.put(8);
         let serialized = serde_json::to_string(&fb).unwrap();
-        assert_eq!(r#"{"data":[332],"length":10}"#, serialized);
+        assert_eq!(r#"{"length":10,"data":[76,1,0,0,0,0,0,0]}"#, serialized);
     }
 }
 
