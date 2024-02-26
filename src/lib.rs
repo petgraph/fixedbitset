@@ -39,6 +39,7 @@ use std::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 
 pub(crate) const BITS: usize = std::mem::size_of::<Block>() * 8;
+#[cfg(feature = "serde")]
 pub(crate) const BYTES: usize = std::mem::size_of::<Block>();
 
 pub type Block = usize;

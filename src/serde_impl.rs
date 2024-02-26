@@ -1,4 +1,7 @@
-use crate::std::{convert::TryFrom, fmt};
+#[cfg(not(feature = "std"))]
+use core as std;
+
+use std::{convert::TryFrom, fmt};
 use crate::{FixedBitSet, BYTES};
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
