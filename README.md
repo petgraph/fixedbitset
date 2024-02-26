@@ -10,6 +10,17 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
+-   0.5.0
+    - [#74](https://github.com/petgraph/fixedbitset/pull/74): Accelerated set operations (union, intersection, difference, 
+      symmetric difference) by using larger blocks internally, by @james7132.
+    - [#88](https://github.com/petgraph/fixedbitset/pull/88): Added `FixedBitSet::remove` by @james7132.
+    - [#89](https://github.com/petgraph/fixedbitset/pull/89): Added `FixedBitSet::zeros`  and the `Zeros` iterator by @james7132.
+    - [#92](https://github.com/petgraph/fixedbitset/pull/92): Added `FixedBitSet::grow_and_insert` function, a 
+      non-panicking version of `insert` that grows the underlying storage as need, by @shuoli84.
+    - [#98](https://github.com/petgraph/fixedbitset/pull/98): `Ones` now implements `DoubleEndedIterator`, by @tikhu.
+    - [#99](https://github.com/petgraph/fixedbitset/pull/99): **Breaking change**: serde now serializes and deserializes from a little-endian encoded
+      raw byte buffer. Existing stored instances of the serialized bitsets will need to be
+      re-encoded.
 -   0.4.2
     - [#79](https://github.com/petgraph/fixedbitset/pull/79): Add `is_clear`,
     clarify `is_empty` and `len` documentation by \@nicopap.
