@@ -195,12 +195,12 @@ fn count_ones(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    bitchange,
     iter_ones_using_contains_all_zeros,
     iter_ones_using_contains_all_ones,
     iter_ones_all_zeros,
     iter_ones_sparse,
     iter_ones_all_ones,
+    iter_ones_all_ones_rev,
     insert_range,
     insert,
     intersect_with,
