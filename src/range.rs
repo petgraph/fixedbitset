@@ -1,3 +1,5 @@
+#[cfg(not(feature = "std"))]
+use core as std;
 use std::ops::{Range, RangeFrom, RangeFull, RangeTo};
 
 // Taken from https://github.com/bluss/odds/blob/master/src/range.rs.
