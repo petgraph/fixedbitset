@@ -13,7 +13,6 @@ keywords = ["container", "data-structure", "bitvec", "bitset", "no_std"]
 categories = ["data-structures"]
 
 [features]
-serde = ["dep:serde", "std"]
 std = []
 default = ["std"]
 
