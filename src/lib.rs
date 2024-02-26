@@ -410,14 +410,21 @@ impl FixedBitSet {
     #[inline]
     pub fn ones(&self) -> Ones {
         match self.as_slice().split_first() {
-            Some((&block, rem)) => Ones {
-                bitset: block,
-                block_idx: 0,
-                remaining_blocks: rem.iter(),
-            },
+            Some((&first_block, rem)) => {
+                let (&last_block, rem) = rem.split_last().unwrap_or((&0, rem));
+                Ones {
+                    bitset_front: first_block,
+                    bitset_back: last_block,
+                    block_idx_front: 0,
+                    block_idx_back: (1 + rem.len()) * BITS,
+                    remaining_blocks: rem.iter(),
+                }
+            }
             None => Ones {
-                bitset: 0,
-                block_idx: 0,
+                bitset_front: 0,
+                bitset_back: 0,
+                block_idx_front: 0,
+                block_idx_back: 0,
                 remaining_blocks: [].iter(),
             },
         }
@@ -764,9 +771,70 @@ impl ExactSizeIterator for Masks {}
 ///
 /// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Ones<'a> {
-    bitset: Block,
-    block_idx: usize,
+    bitset_front: Block,
+    bitset_back: Block,
+    block_idx_front: usize,
+    block_idx_back: usize,
     remaining_blocks: std::slice::Iter<'a, Block>,
+}
+
+impl<'a> Ones<'a> {
+    #[inline]
+    pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
+        // Find the last set bit using x & -x
+        let last_bit = *n & n.wrapping_neg();
+
+        // Find the position of the last set bit
+        let position = last_bit.trailing_zeros();
+
+        // Unset the last set bit
+        *n &= *n - 1;
+
+        position as usize
+    }
+
+    #[inline]
+    fn first_positive_bit_and_unset(n: &mut Block) -> usize {
+        /* Identify the first non zero bit */
+        let bit_idx = n.leading_zeros();
+
+        /* set that bit to zero */
+        let mask = !((1 as Block) << (BITS as u32 - bit_idx - 1));
+        n.bitand_assign(mask);
+
+        bit_idx as usize
+    }
+}
+
+impl<'a> DoubleEndedIterator for Ones<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        while self.bitset_back == 0 {
+            match self.remaining_blocks.next_back() {
+                None => {
+                    if self.bitset_front != 0 {
+                        self.bitset_back = 0;
+                        self.block_idx_back = self.block_idx_front;
+                        return Some(
+                            self.block_idx_front + BITS
+                                - Self::first_positive_bit_and_unset(&mut self.bitset_front)
+                                - 1,
+                        );
+                    } else {
+                        return None;
+                    }
+                }
+                Some(next_block) => {
+                    self.bitset_back = *next_block;
+                    self.block_idx_back -= BITS;
+                }
+            };
+        }
+
+        Some(
+            self.block_idx_back - Self::first_positive_bit_and_unset(&mut self.bitset_back) + BITS
+                - 1,
+        )
+    }
 }
 
 impl<'a> Iterator for Ones<'a> {
@@ -774,19 +842,38 @@ impl<'a> Iterator for Ones<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        while self.bitset == 0 {
-            self.bitset = *self.remaining_blocks.next()?;
-            self.block_idx += BITS;
+        while self.bitset_front == 0 {
+            match self.remaining_blocks.next() {
+                Some(next_block) => {
+                    self.bitset_front = *next_block;
+                    self.block_idx_front += BITS;
+                }
+                None => {
+                    if self.bitset_back != 0 {
+                        // not needed for iteration, but for size_hint
+                        self.block_idx_front = self.block_idx_back;
+                        self.bitset_front = 0;
+
+                        return Some(
+                            self.block_idx_back
+                                + Self::last_positive_bit_and_unset(&mut self.bitset_back),
+                        );
+                    } else {
+                        return None;
+                    }
+                }
+            };
         }
-        let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
-        let r = self.bitset.trailing_zeros() as usize;
-        self.bitset ^= t;
-        Some(self.block_idx + r)
+
+        Some(self.block_idx_front + Self::last_positive_bit_and_unset(&mut self.bitset_front))
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, Some(self.remaining_blocks.as_slice().len() * BITS))
+        (
+            0,
+            (Some(self.block_idx_back - self.block_idx_front + 2 * BITS)),
+        )
     }
 }
 
@@ -1015,6 +1102,12 @@ mod tests {
 
         let ones: Vec<_> = fb.ones().collect();
         assert_eq!(ones.len(), 1);
+
+        let ones: Vec<_> = fb.ones().rev().collect();
+        assert_eq!(ones.len(), 1);
+
+        let ones: Vec<_> = fb.ones().rev().alternate().collect();
+        assert_eq!(ones.len(), 1);
     }
 
     #[test]
@@ -1133,6 +1226,43 @@ mod tests {
         assert_eq!(fb.count_ones(8..), 8);
     }
 
+    /* Helper for testing double ended iterator */
+    #[cfg(test)]
+    struct Alternating<I> {
+        iter: I,
+        front: bool,
+    }
+
+    #[cfg(test)]
+    impl<I: Iterator + DoubleEndedIterator> Iterator for Alternating<I> {
+        type Item = I::Item;
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            self.iter.size_hint()
+        }
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.front {
+                self.front = false;
+                self.iter.next()
+            } else {
+                self.front = true;
+                self.iter.next_back()
+            }
+        }
+    }
+    #[cfg(test)]
+    trait AlternatingExt: Iterator + DoubleEndedIterator + Sized {
+        fn alternate(self) -> Alternating<Self> {
+            Alternating {
+                iter: self,
+                front: true,
+            }
+        }
+    }
+
+    #[cfg(test)]
+    impl<I: Iterator + DoubleEndedIterator> AlternatingExt for I {}
+
     #[test]
     fn ones() {
         let mut fb = FixedBitSet::with_capacity(100);
@@ -1147,8 +1277,60 @@ mod tests {
         fb.set(99, true);
 
         let ones: Vec<_> = fb.ones().collect();
+        let ones_rev: Vec<_> = fb.ones().rev().collect();
+        let ones_alternating: Vec<_> = fb.ones().alternate().collect();
 
-        assert_eq!(vec![7, 11, 12, 35, 40, 50, 77, 95, 99], ones);
+        let mut known_result = vec![7, 11, 12, 35, 40, 50, 77, 95, 99];
+
+        assert_eq!(known_result, ones);
+        known_result.reverse();
+        assert_eq!(known_result, ones_rev);
+        let known_result: Vec<_> = known_result.into_iter().rev().alternate().collect();
+        assert_eq!(known_result, ones_alternating);
+    }
+
+    #[test]
+    fn size_hint() {
+        for s in 0..1000 {
+            let mut bitset = FixedBitSet::with_capacity(s);
+            bitset.insert_range(..);
+            let mut t = s;
+            let mut iter = bitset.ones().rev();
+            loop {
+                match iter.next() {
+                    None => break,
+                    Some(_) => {
+                        t -= 1;
+                        assert!(iter.size_hint().1.unwrap() >= t);
+                        // factor two, because we have first block and last block
+                        assert!(iter.size_hint().1.unwrap() <= t + 2 * BITS);
+                    }
+                }
+            }
+            assert_eq!(t, 0);
+        }
+    }
+
+    #[test]
+    fn size_hint_alternate() {
+        for s in 0..1000 {
+            let mut bitset = FixedBitSet::with_capacity(s);
+            bitset.insert_range(..);
+            let mut t = s;
+            let mut iter = bitset.ones().alternate();
+            loop {
+                match iter.next() {
+                    None => break,
+                    Some(_) => {
+                        t -= 1;
+                        //println!("{:?} < {}", iter.size_hint(), t);
+                        assert!(iter.size_hint().1.unwrap() >= t);
+                        assert!(iter.size_hint().1.unwrap() <= t + 3 * BITS);
+                    }
+                }
+            }
+            assert_eq!(t, 0);
+        }
     }
 
     #[test]
@@ -1161,7 +1343,13 @@ mod tests {
             }
             let ones: Vec<_> = fb.ones().collect();
             let expected: Vec<_> = (from..to).collect();
+            let ones_rev: Vec<_> = fb.ones().rev().collect();
+            let expected_rev: Vec<_> = (from..to).rev().collect();
+            let ones_rev_alt: Vec<_> = fb.ones().rev().alternate().collect();
+            let expected_rev_alt: Vec<_> = (from..to).rev().alternate().collect();
             assert_eq!(expected, ones);
+            assert_eq!(expected_rev, ones_rev);
+            assert_eq!(expected_rev_alt, ones_rev_alt);
         }
 
         for i in 0..100 {
@@ -1631,7 +1819,7 @@ mod tests {
         let b = b_ones.iter().cloned().collect::<FixedBitSet>();
         a |= b;
         let res = a.ones().collect::<Vec<usize>>();
-        assert!(res == a_or_b);
+        assert_eq!(res, a_or_b);
     }
 
     #[test]
@@ -1750,7 +1938,7 @@ mod tests {
             tmp
         };
 
-        assert!(ones == expected);
+        assert_eq!(ones, expected);
     }
 
     #[test]
