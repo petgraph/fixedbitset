@@ -55,6 +55,25 @@ fn iter_ones_all_zeros(c: &mut Criterion) {
     });
 }
 
+fn iter_ones_sparse(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb = FixedBitSet::with_capacity(N);
+    for i in 0..N {
+        if i % 2 == 0 {
+            fb.insert(i);
+        }
+    }
+    c.bench_function("iter_ones/sparse", |b| {
+        b.iter(|| {
+            let mut count = 0;
+            for _ in fb.ones() {
+                count += 1;
+            }
+            count
+        })
+    });
+}
+
 fn iter_ones_all_ones(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb = FixedBitSet::with_capacity(N);
@@ -64,6 +83,22 @@ fn iter_ones_all_ones(c: &mut Criterion) {
         b.iter(|| {
             let mut count = 0;
             for _ in fb.ones() {
+                count += 1;
+            }
+            count
+        })
+    });
+}
+
+fn iter_ones_all_ones_rev(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb = FixedBitSet::with_capacity(N);
+    fb.insert_range(..);
+
+    c.bench_function("iter_ones/all_ones", |b| {
+        b.iter(|| {
+            let mut count = 0;
+            for _ in fb.ones().rev() {
                 count += 1;
             }
             count
@@ -86,6 +121,19 @@ fn insert(c: &mut Criterion) {
         b.iter(|| {
             for i in 0..N {
                 fb.insert(i);
+            }
+        })
+    });
+}
+
+fn grow_and_insert(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb = FixedBitSet::with_capacity(N);
+
+    c.bench_function("grow_and_insert", |b| {
+        b.iter(|| {
+            for i in 0..N {
+                fb.grow_and_insert(i);
             }
         })
     });
@@ -147,9 +195,11 @@ fn count_ones(c: &mut Criterion) {
 
 criterion_group!(
     benches,
+    bitchange,
     iter_ones_using_contains_all_zeros,
     iter_ones_using_contains_all_ones,
     iter_ones_all_zeros,
+    iter_ones_sparse,
     iter_ones_all_ones,
     insert_range,
     insert,
@@ -159,5 +209,6 @@ criterion_group!(
     symmetric_difference_with,
     count_ones,
     clear,
+    grow_and_insert,
 );
 criterion_main!(benches);

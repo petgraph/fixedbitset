@@ -2,7 +2,7 @@
 name = "fixedbitset"
 version = "0.4.2"
 authors = ["bluss"]
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 rust-version = "1.56"
 edition = "2021"
