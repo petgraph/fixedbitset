@@ -21,6 +21,7 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
     - [#99](https://github.com/petgraph/fixedbitset/pull/99): **Breaking change**: serde now serializes and deserializes from a little-endian encoded
       raw byte buffer. Existing stored instances of the serialized bitsets will need to be
       re-encoded.
+    - Bumped MSRV to 1.56.
 -   0.4.2
     - [#79](https://github.com/petgraph/fixedbitset/pull/79): Add `is_clear`,
     clarify `is_empty` and `len` documentation by \@nicopap.
