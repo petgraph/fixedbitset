@@ -732,6 +732,17 @@ impl<'a> Iterator for Difference<'a> {
     }
 }
 
+impl<'a> DoubleEndedIterator for Difference<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        for nxt in self.iter.by_ref().rev() {
+            if !self.other.contains(nxt) {
+                return Some(nxt);
+            }
+        }
+        None
+    }
+}
+
 // Difference will continue to return None once it first returns None.
 impl<'a> FusedIterator for Difference<'a> {}
 
@@ -753,6 +764,12 @@ impl<'a> Iterator for SymmetricDifference<'a> {
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
+    }
+}
+
+impl<'a> DoubleEndedIterator for SymmetricDifference<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
     }
 }
 
@@ -787,6 +804,17 @@ impl<'a> Iterator for Intersection<'a> {
     }
 }
 
+impl<'a> DoubleEndedIterator for Intersection<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        for nxt in self.iter.by_ref().rev() {
+            if self.other.contains(nxt) {
+                return Some(nxt);
+            }
+        }
+        None
+    }
+}
+
 // Intersection will continue to return None once it first returns None.
 impl<'a> FusedIterator for Intersection<'a> {}
 
@@ -808,6 +836,12 @@ impl<'a> Iterator for Union<'a> {
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
+    }
+}
+
+impl<'a> DoubleEndedIterator for Union<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
     }
 }
 
