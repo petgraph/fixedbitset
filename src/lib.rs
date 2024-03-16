@@ -219,6 +219,7 @@ impl FixedBitSet {
     ///
     /// # Safety
     /// `bit` must be less than `self.len()`
+    #[inline]
     pub unsafe fn contains_unchecked(&self, bit: usize) -> bool {
         let (block, i) = div_rem(bit);
         (self.data.get_unchecked(block) & (1 << i)) != 0
