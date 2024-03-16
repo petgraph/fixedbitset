@@ -10,6 +10,13 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
+-   0.5.1
+    - [#102](https://github.com/petgraph/fixedbitset/pull/102): Added `contains_unchecked`, `insert_unchecked`, `put_unchecked`,
+      `set_unchecked`, `toggle_unchecked`, `removed_unchecked`, `copy_bit_unchecked` unsafe variants of the safe functions, by @james7132
+    - [#103](https://github.com/petgraph/fixedbitset/pull/103): Added `into_ones` which returns a owned iterator over the one
+      values from a bitset, by @james7132.
+    - [#104](https://github.com/petgraph/fixedbitset/pull/104): Implemented `DoubleEndedIterator` for `Union`, `Intersection`,
+      `Difference`, and `SymmetricDifference` , by @james7132.
 -   0.5.0
     - [#74](https://github.com/petgraph/fixedbitset/pull/74): Accelerated set operations (union, intersection, difference, 
       symmetric difference) by using larger blocks internally, by @james7132.
