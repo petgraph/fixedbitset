@@ -517,6 +517,32 @@ impl FixedBitSet {
         }
     }
 
+    /// Iterates over all enabled bits.
+    ///
+    /// Iterator element is the index of the `1` bit, type `usize`.
+    /// Unlike `ones`, this function consumes the `FixedBitset`.
+    pub fn into_ones(mut self) -> IntoOnes {
+        if self.data.len() == 0 {
+            IntoOnes {
+                bitset_front: 0,
+                bitset_back: 0,
+                block_idx_front: 0,
+                block_idx_back: 0,
+                remaining_blocks: self.data.into_iter(),
+            }
+        } else {
+            let first_block = self.data.remove(0);
+            let last_block = self.data.pop().unwrap_or(0);
+            IntoOnes {
+                bitset_front: first_block,
+                bitset_back: last_block,
+                block_idx_front: 0,
+                block_idx_back: (1 + self.data.len()) * BITS,
+                remaining_blocks: self.data.into_iter(),
+            }
+        }
+    }
+
     /// Iterates over all disabled bits.
     ///
     /// Iterator element is the index of the `0` bit, type `usize`.
@@ -1058,6 +1084,116 @@ impl FromIterator<usize> for FixedBitSet {
     }
 }
 
+pub struct IntoOnes {
+    bitset_front: Block,
+    bitset_back: Block,
+    block_idx_front: usize,
+    block_idx_back: usize,
+    remaining_blocks: std::vec::IntoIter<Block>,
+}
+
+impl IntoOnes {
+    #[inline]
+    pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
+        // Find the last set bit using x & -x
+        let last_bit = *n & n.wrapping_neg();
+
+        // Find the position of the last set bit
+        let position = last_bit.trailing_zeros();
+
+        // Unset the last set bit
+        *n &= *n - 1;
+
+        position as usize
+    }
+
+    #[inline]
+    fn first_positive_bit_and_unset(n: &mut Block) -> usize {
+        /* Identify the first non zero bit */
+        let bit_idx = n.leading_zeros();
+
+        /* set that bit to zero */
+        let mask = !((1 as Block) << (BITS as u32 - bit_idx - 1));
+        n.bitand_assign(mask);
+
+        bit_idx as usize
+    }
+}
+
+impl DoubleEndedIterator for IntoOnes {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        while self.bitset_back == 0 {
+            match self.remaining_blocks.next_back() {
+                None => {
+                    if self.bitset_front != 0 {
+                        self.bitset_back = 0;
+                        self.block_idx_back = self.block_idx_front;
+                        return Some(
+                            self.block_idx_front + BITS
+                                - Self::first_positive_bit_and_unset(&mut self.bitset_front)
+                                - 1,
+                        );
+                    } else {
+                        return None;
+                    }
+                }
+                Some(next_block) => {
+                    self.bitset_back = next_block;
+                    self.block_idx_back -= BITS;
+                }
+            };
+        }
+
+        Some(
+            self.block_idx_back - Self::first_positive_bit_and_unset(&mut self.bitset_back) + BITS
+                - 1,
+        )
+    }
+}
+
+impl Iterator for IntoOnes {
+    type Item = usize; // the bit position of the '1'
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.bitset_front == 0 {
+            match self.remaining_blocks.next() {
+                Some(next_block) => {
+                    self.bitset_front = next_block;
+                    self.block_idx_front += BITS;
+                }
+                None => {
+                    if self.bitset_back != 0 {
+                        // not needed for iteration, but for size_hint
+                        self.block_idx_front = self.block_idx_back;
+                        self.bitset_front = 0;
+
+                        return Some(
+                            self.block_idx_back
+                                + Self::last_positive_bit_and_unset(&mut self.bitset_back),
+                        );
+                    } else {
+                        return None;
+                    }
+                }
+            };
+        }
+
+        Some(self.block_idx_front + Self::last_positive_bit_and_unset(&mut self.bitset_front))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (
+            0,
+            (Some(self.block_idx_back - self.block_idx_front + 2 * BITS)),
+        )
+    }
+}
+
+// Ones will continue to return None once it first returns None.
+impl<'a> FusedIterator for IntoOnes {}
+
 impl<'a> BitAnd for &'a FixedBitSet {
     type Output = FixedBitSet;
     fn bitand(self, other: &FixedBitSet) -> FixedBitSet {
@@ -1366,6 +1502,35 @@ mod tests {
         let ones: Vec<_> = fb.ones().collect();
         let ones_rev: Vec<_> = fb.ones().rev().collect();
         let ones_alternating: Vec<_> = fb.ones().alternate().collect();
+
+        let mut known_result = vec![7, 11, 12, 35, 40, 50, 77, 95, 99];
+
+        assert_eq!(known_result, ones);
+        known_result.reverse();
+        assert_eq!(known_result, ones_rev);
+        let known_result: Vec<_> = known_result.into_iter().rev().alternate().collect();
+        assert_eq!(known_result, ones_alternating);
+    }
+
+    #[test]
+    fn into_ones() {
+        fn create() -> FixedBitSet {
+            let mut fb = FixedBitSet::with_capacity(100);
+            fb.set(11, true);
+            fb.set(12, true);
+            fb.set(7, true);
+            fb.set(35, true);
+            fb.set(40, true);
+            fb.set(77, true);
+            fb.set(95, true);
+            fb.set(50, true);
+            fb.set(99, true);
+            fb
+        }
+
+        let ones: Vec<_> = create().into_ones().collect();
+        let ones_rev: Vec<_> = create().into_ones().rev().collect();
+        let ones_alternating: Vec<_> = create().into_ones().alternate().collect();
 
         let mut known_result = vec![7, 11, 12, 35, 40, 50, 77, 95, 99];
 
