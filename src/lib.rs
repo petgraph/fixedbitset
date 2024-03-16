@@ -211,6 +211,20 @@ impl FixedBitSet {
         }
     }
 
+    /// Return **true** if the bit is enabled in the **FixedBitSet**,
+    /// **false** otherwise.
+    ///
+    /// Note: unlike `contains`, calling this with an invalid `bit`
+    /// is undefined behavior.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self.len()`
+    #[inline]
+    pub unsafe fn contains_unchecked(&self, bit: usize) -> bool {
+        let (block, i) = div_rem(bit);
+        (self.data.get_unchecked(block) & (1 << i)) != 0
+    }
+
     /// Clear all bits.
     #[inline]
     pub fn clear(&mut self) {
@@ -226,10 +240,22 @@ impl FixedBitSet {
     pub fn insert(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "insert at index {} exceeds fixbitset size {}",
+            "insert at index {} exceeds fixedbitset size {}",
             bit,
             self.length
         );
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
+        unsafe {
+            self.insert_unchecked(bit);
+        }
+    }
+
+    /// Enable `bit` without any length checks.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self.len()`
+    #[inline]
+    pub unsafe fn insert_unchecked(&mut self, bit: usize) {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
@@ -244,10 +270,22 @@ impl FixedBitSet {
     pub fn remove(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "remove at index {} exceeds fixbitset size {}",
+            "remove at index {} exceeds fixedbitset size {}",
             bit,
             self.length
         );
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
+        unsafe {
+            self.remove_unchecked(bit);
+        }
+    }
+
+    /// Disable `bit` without any bounds checking.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self.len()`
+    #[inline]
+    pub unsafe fn remove_unchecked(&mut self, bit: usize) {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
@@ -262,10 +300,20 @@ impl FixedBitSet {
     pub fn put(&mut self, bit: usize) -> bool {
         assert!(
             bit < self.length,
-            "put at index {} exceeds fixbitset size {}",
+            "put at index {} exceeds fixedbitset size {}",
             bit,
             self.length
         );
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
+        unsafe { self.put_unchecked(bit) }
+    }
+
+    /// Enable `bit`, and return its previous value without doing any bounds checking.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self.len()`
+    #[inline]
+    pub unsafe fn put_unchecked(&mut self, bit: usize) -> bool {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
@@ -283,10 +331,22 @@ impl FixedBitSet {
     pub fn toggle(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "toggle at index {} exceeds fixbitset size {}",
+            "toggle at index {} exceeds fixedbitset size {}",
             bit,
             self.length
         );
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
+        unsafe {
+            self.toggle_unchecked(bit);
+        }
+    }
+
+    /// Toggle `bit` (inverting its state) without any bounds checking.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self.len()`
+    #[inline]
+    pub unsafe fn toggle_unchecked(&mut self, bit: usize) {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
@@ -294,15 +354,29 @@ impl FixedBitSet {
         }
     }
 
+    /// Sets a bit to the provided `enabled` value.
+    ///
     /// **Panics** if **bit** is out of bounds.
     #[inline]
     pub fn set(&mut self, bit: usize, enabled: bool) {
         assert!(
             bit < self.length,
-            "set at index {} exceeds fixbitset size {}",
+            "set at index {} exceeds fixedbitset size {}",
             bit,
             self.length
         );
+        // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
+        unsafe {
+            self.set_unchecked(bit, enabled);
+        }
+    }
+
+    /// Sets a bit to the provided `enabled` value without doing any bounds checking.
+    ///
+    /// # Safety
+    /// `bit` must be less than `self.len()`
+    #[inline]
+    pub unsafe fn set_unchecked(&mut self, bit: usize, enabled: bool) {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         let elt = unsafe { self.data.get_unchecked_mut(block) };
@@ -315,24 +389,35 @@ impl FixedBitSet {
 
     /// Copies boolean value from specified bit to the specified bit.
     ///
+    /// If `from` is out-of-bounds, `to` will be unset.
+    ///
     /// **Panics** if **to** is out of bounds.
     #[inline]
     pub fn copy_bit(&mut self, from: usize, to: usize) {
         assert!(
             to < self.length,
-            "copy at index {} exceeds fixbitset size {}",
+            "copy to index {} exceeds fixedbitset size {}",
             to,
             self.length
         );
-        let (to_block, t) = div_rem(to);
         let enabled = self.contains(from);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
-        let to_elt = unsafe { self.data.get_unchecked_mut(to_block) };
-        if enabled {
-            *to_elt |= 1 << t;
-        } else {
-            *to_elt &= !(1 << t);
-        }
+        unsafe { self.set_unchecked(to, enabled) };
+    }
+
+    /// Copies boolean value from specified bit to the specified bit.
+    ///
+    /// Note: unlike `copy_bit`, calling this with an invalid `from`
+    /// is undefined behavior.
+    ///
+    /// # Safety
+    /// `to` must both be less than `self.len()`
+    #[inline]
+    pub unsafe fn copy_bit_unchecked(&mut self, from: usize, to: usize) {
+        // SAFETY: Caller must ensure that `from` is within bounds.
+        let enabled = self.contains_unchecked(from);
+        // SAFETY: Caller must ensure that `to` is within bounds.
+        self.set_unchecked(to, enabled);
     }
 
     /// Count the number of set bits in the given bit range.
