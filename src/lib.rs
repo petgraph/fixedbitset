@@ -214,8 +214,8 @@ impl FixedBitSet {
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
     /// **false** otherwise.
     ///
-    /// Note: unlike `contains`, this function will not return false if called
-    /// with a value that is out of bounds.
+    /// Note: unlike `contains`, calling this with an invalid `bit`
+    /// is undefined behavior.
     ///
     /// # Safety
     /// `bit` must be less than `self.len()`
@@ -388,33 +388,33 @@ impl FixedBitSet {
 
     /// Copies boolean value from specified bit to the specified bit.
     ///
+    /// If `from` is out-of-bounds, `to` will be unset.
+    ///
     /// **Panics** if **to** is out of bounds.
     #[inline]
     pub fn copy_bit(&mut self, from: usize, to: usize) {
-        assert!(
-            from < self.length,
-            "copy from index {} exceeds fixedbitset size {}",
-            from,
-            self.length
-        );
         assert!(
             to < self.length,
             "copy to index {} exceeds fixedbitset size {}",
             to,
             self.length
         );
+        let enabled = self.contains(from);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
-        unsafe { self.copy_bit_unchecked(from, to) };
+        unsafe { self.set_unchecked(to, enabled) };
     }
 
     /// Copies boolean value from specified bit to the specified bit.
     ///
+    /// Note: unlike `copy_bit`, calling this with an invalid `from`
+    /// is undefined behavior.
+    ///
     /// # Safety
-    /// `from`  and `to` must both be less than `self.len()`
+    /// `to` must both be less than `self.len()`
     #[inline]
     pub unsafe fn copy_bit_unchecked(&mut self, from: usize, to: usize) {
         // SAFETY: Caller must ensure that `from` is within bounds.
-        let enabled = self.contains(from);
+        let enabled = self.contains_unchecked(from);
         // SAFETY: Caller must ensure that `to` is within bounds.
         self.set_unchecked(to, enabled);
     }
