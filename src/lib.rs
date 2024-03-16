@@ -18,7 +18,12 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::{vec, vec::Vec};
+use alloc::{
+    vec,
+    vec::{IntoIter, Vec},
+};
+#[cfg(feature = "std")]
+use std::vec::IntoIter;
 
 #[cfg(not(feature = "std"))]
 use core as std;
@@ -1089,7 +1094,7 @@ pub struct IntoOnes {
     bitset_back: Block,
     block_idx_front: usize,
     block_idx_back: usize,
-    remaining_blocks: std::vec::IntoIter<Block>,
+    remaining_blocks: IntoIter<Block>,
 }
 
 impl IntoOnes {
