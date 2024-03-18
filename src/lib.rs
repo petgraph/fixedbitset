@@ -684,7 +684,7 @@ impl FixedBitSet {
         self.data
             .iter()
             .zip(other.data.iter())
-            .all(|(x, y)| *x & *y == Block::NONE)
+            .all(|(x, y)| (*x & *y).is_empty())
     }
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
@@ -693,12 +693,12 @@ impl FixedBitSet {
         self.data
             .iter()
             .zip(other.data.iter())
-            .all(|(x, y)| x.andnot(*y) == Block::NONE)
+            .all(|(x, y)| x.andnot(*y).is_empty())
             && self
                 .data
                 .iter()
                 .skip(other.data.len())
-                .all(|x| *x == Block::NONE)
+                .all(|x| x.is_empty())
     }
 
     /// Returns `true` if the set is a superset of another, i.e. `self` contains
