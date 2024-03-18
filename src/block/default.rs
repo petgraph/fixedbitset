@@ -6,40 +6,14 @@ use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, 
 pub struct Block(usize);
 
 impl Block {
-    const _ASSERTION: () = {
-        if core::mem::size_of::<Self>() % core::mem::size_of::<usize>() != 0 {
-            panic!("vector is not a multiple size of usize");
-        }
-    };
-
     pub const USIZE_COUNT: usize = 1;
     pub const NONE: Self = Block(0);
     pub const ALL: Self = Block(!0);
     pub const BITS: usize = core::mem::size_of::<Self>() * 8;
 
     #[inline]
-    pub fn create_buffer(iter: impl Iterator<Item = usize>) -> Vec<Self> {
-        iter.map(Self).collect()
-    }
-
-    #[inline]
     pub const fn is_empty(self) -> bool {
         self.0 == Self::NONE.0
-    }
-
-    #[inline]
-    pub const fn count_ones(self) -> u32 {
-        self.0.count_ones()
-    }
-
-    #[inline]
-    pub const fn upper_mask(size: usize) -> Self {
-        Self(core::usize::MAX << size)
-    }
-
-    #[inline]
-    pub const fn lower_mask(size: usize) -> Self {
-        Self((core::usize::MAX >> 1) >> (Self::BITS - size - 1))
     }
 
     #[inline]

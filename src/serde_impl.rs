@@ -25,10 +25,10 @@ impl<'a> Serialize for BitSetByteSerializer<'a> {
     where
         S: Serializer,
     {
-        let len = self.0.data.len() * BYTES;
+        let len = self.0.as_slice().len() * BYTES;
         // PERF: Figure out a way to do this without allocating.
         let mut temp = Vec::with_capacity(len);
-        for block in &self.0.data {
+        for block in &self.0.as_slice() {
             temp.extend(&block.to_le_bytes());
         }
         serializer.serialize_bytes(&temp)

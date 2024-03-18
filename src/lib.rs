@@ -120,21 +120,11 @@ impl FixedBitSet {
     }
 
     unsafe fn get_unchecked(&self, subblock: usize) -> &usize {
-        self.data
-            .as_ptr()
-            .cast::<usize>()
-            .add(subblock)
-            .as_ref()
-            .unwrap_unchecked()
+        &*self.data.as_ptr().cast::<usize>().add(subblock)
     }
 
     unsafe fn get_unchecked_mut(&mut self, subblock: usize) -> &mut usize {
-        self.data
-            .as_mut_ptr()
-            .cast::<usize>()
-            .add(subblock)
-            .as_mut()
-            .unwrap_unchecked()
+        &mut *self.data.as_mut_ptr().cast::<usize>().add(subblock)
     }
 
     fn usize_len(&self) -> usize {

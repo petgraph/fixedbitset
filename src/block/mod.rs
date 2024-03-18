@@ -33,3 +33,9 @@ pub use self::avx2::*;
 mod wasm32;
 #[cfg(target_arch = "wasm32")]
 pub use self::wasm32::*;
+
+const _ASSERTION: () = {
+    if core::mem::size_of::<Block>() % core::mem::size_of::<usize>() != 0 {
+        panic!("vector is not a multiple size of usize");
+    }
+};

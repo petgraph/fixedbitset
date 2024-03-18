@@ -14,12 +14,6 @@ use core::{
 pub struct Block(__m256i);
 
 impl Block {
-    const _ASSERTION: () = {
-        if core::mem::size_of::<Self>() % core::mem::size_of::<usize>() != 0 {
-            panic!("vector is not a multiple size of usize");
-        }
-    };
-
     pub const USIZE_COUNT: usize = core::mem::size_of::<Self>() / core::mem::size_of::<usize>();
     pub const NONE: Self = Self::from_usize_array([0; Self::USIZE_COUNT]);
     pub const ALL: Self = Self::from_usize_array([core::usize::MAX; Self::USIZE_COUNT]);
@@ -36,62 +30,8 @@ impl Block {
     }
 
     #[inline]
-    pub fn create_buffer(iter: impl Iterator<Item = usize>) -> Vec<Self> {
-        let (lower, _) = iter.size_hint();
-        let mut output = Vec::with_capacity(lower / Self::USIZE_COUNT);
-        let mut buffer = [0; Self::USIZE_COUNT];
-        let mut index = 0;
-        for chunk in iter {
-            buffer[index] = chunk;
-            index += 1;
-            if index >= Self::USIZE_COUNT {
-                output.push(Self::from_usize_array(buffer));
-                index = 0;
-            }
-        }
-        if index != 0 {
-            #[allow(clippy::needless_range_loop)]
-            for idx in index..Self::USIZE_COUNT {
-                buffer[idx] = 0;
-            }
-            output.push(Self::from_usize_array(buffer));
-        }
-        output
-    }
-
-    #[inline]
     pub fn is_empty(self) -> bool {
         unsafe { _mm256_testz_si256(self.0, self.0) == 1 }
-    }
-
-    #[inline]
-    pub fn count_ones(self) -> u32 {
-        unsafe {
-            let array: [usize; Self::USIZE_COUNT] = core::mem::transmute(self.0);
-            array.iter().copied().map(usize::count_ones).sum()
-        }
-    }
-
-    #[inline]
-    pub fn upper_mask(mut size: usize) -> Self {
-        let res = if size >= 128 {
-            size -= 128;
-            [0, core::u128::MAX << size]
-        } else {
-            [core::u128::MAX << size, core::u128::MAX]
-        };
-        Self(unsafe { core::mem::transmute(res) })
-    }
-
-    #[inline]
-    pub fn lower_mask(mut size: usize) -> Self {
-        let res = if size >= 128 {
-            size -= 128;
-            [core::u128::MAX, (core::u128::MAX >> 1) >> (128 - size - 1)]
-        } else {
-            [(core::u128::MAX >> 1) >> (128 - size - 1), 0]
-        };
-        Self(unsafe { core::mem::transmute(res) })
     }
 
     #[inline]
