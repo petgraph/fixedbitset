@@ -12,21 +12,14 @@
 //! This version of fixedbitset requires Rust 1.39 or later.
 //!
 #![doc(html_root_url = "https://docs.rs/fixedbitset/0.4.2/")]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![forbid(clippy::undocumented_unsafe_blocks)]
 
-#[cfg(not(feature = "std"))]
 extern crate alloc;
-#[cfg(not(feature = "std"))]
 use alloc::{
     vec,
     vec::{IntoIter, Vec},
 };
-#[cfg(feature = "std")]
-use std::vec::IntoIter;
-
-#[cfg(not(feature = "std"))]
-use core as std;
 
 mod range;
 
@@ -35,17 +28,17 @@ extern crate serde;
 #[cfg(feature = "serde")]
 mod serde_impl;
 
-use std::fmt::Write;
-use std::fmt::{Binary, Display, Error, Formatter};
+use core::fmt::Write;
+use core::fmt::{Binary, Display, Error, Formatter};
 
 pub use range::IndexRange;
-use std::cmp::{Ord, Ordering};
-use std::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
+use core::cmp::{Ord, Ordering};
+use core::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 
-pub(crate) const BITS: usize = std::mem::size_of::<Block>() * 8;
+pub(crate) const BITS: usize = core::mem::size_of::<Block>() * 8;
 #[cfg(feature = "serde")]
-pub(crate) const BYTES: usize = std::mem::size_of::<Block>();
+pub(crate) const BYTES: usize = core::mem::size_of::<Block>();
 
 pub type Block = usize;
 
@@ -620,7 +613,7 @@ impl FixedBitSet {
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
             *x &= *y;
         }
-        let mn = std::cmp::min(self.data.len(), other.data.len());
+        let mn = core::cmp::min(self.data.len(), other.data.len());
         for wd in &mut self.data[mn..] {
             *wd = 0;
         }
@@ -927,7 +920,7 @@ pub struct Ones<'a> {
     bitset_back: Block,
     block_idx_front: usize,
     block_idx_back: usize,
-    remaining_blocks: std::slice::Iter<'a, Block>,
+    remaining_blocks: core::slice::Iter<'a, Block>,
 }
 
 impl<'a> Ones<'a> {
@@ -1039,7 +1032,7 @@ pub struct Zeroes<'a> {
     bitset: Block,
     block_idx: usize,
     len: usize,
-    remaining_blocks: std::slice::Iter<'a, Block>,
+    remaining_blocks: core::slice::Iter<'a, Block>,
 }
 
 impl<'a> Iterator for Zeroes<'a> {
@@ -1247,7 +1240,7 @@ impl<'a> BitAnd for &'a FixedBitSet {
         for (data, block) in data.iter_mut().zip(long.iter()) {
             *data &= *block;
         }
-        let len = std::cmp::min(self.len(), other.len());
+        let len = core::cmp::min(self.len(), other.len());
         FixedBitSet { data, length: len }
     }
 }
@@ -1278,7 +1271,7 @@ impl<'a> BitOr for &'a FixedBitSet {
         for (data, block) in data.iter_mut().zip(short.iter()) {
             *data |= *block;
         }
-        let len = std::cmp::max(self.len(), other.len());
+        let len = core::cmp::max(self.len(), other.len());
         FixedBitSet { data, length: len }
     }
 }
@@ -1309,7 +1302,7 @@ impl<'a> BitXor for &'a FixedBitSet {
         for (data, block) in data.iter_mut().zip(short.iter()) {
             *data ^= *block;
         }
-        let len = std::cmp::max(self.len(), other.len());
+        let len = core::cmp::max(self.len(), other.len());
         FixedBitSet { data, length: len }
     }
 }
@@ -1761,7 +1754,7 @@ mod tests {
     fn bitand_first_smaller() {
         let a_len = 113;
         let b_len = 137;
-        let len = std::cmp::min(a_len, b_len);
+        let len = core::cmp::min(a_len, b_len);
         let a_end = 97;
         let b_start = 89;
         let mut a = FixedBitSet::with_capacity(a_len);
@@ -1785,7 +1778,7 @@ mod tests {
     fn bitand_first_larger() {
         let a_len = 173;
         let b_len = 137;
-        let len = std::cmp::min(a_len, b_len);
+        let len = core::cmp::min(a_len, b_len);
         let a_end = 107;
         let b_start = 43;
         let mut a = FixedBitSet::with_capacity(a_len);
@@ -2017,7 +2010,7 @@ mod tests {
     fn bitxor_first_smaller() {
         let a_len = 113;
         let b_len = 137;
-        let len = std::cmp::max(a_len, b_len);
+        let len = core::cmp::max(a_len, b_len);
         let a_end = 97;
         let b_start = 89;
         let mut a = FixedBitSet::with_capacity(a_len);
@@ -2041,7 +2034,7 @@ mod tests {
     fn bitxor_first_larger() {
         let a_len = 173;
         let b_len = 137;
-        let len = std::cmp::max(a_len, b_len);
+        let len = core::cmp::max(a_len, b_len);
         let a_end = 107;
         let b_start = 43;
         let mut a = FixedBitSet::with_capacity(a_len);
@@ -2296,8 +2289,8 @@ mod tests {
         let items: Vec<usize> = vec![1, 5, 7, 10, 14, 15];
         let fb = items.iter().cloned().collect::<FixedBitSet>();
 
-        assert_eq!(format!("{:b}", fb), "0100010100100011");
-        assert_eq!(format!("{:#b}", fb), "0b0100010100100011");
+        assert_eq!(alloc::format!("{:b}", fb), "0100010100100011");
+        assert_eq!(alloc::format!("{:#b}", fb), "0b0100010100100011");
     }
 
     #[cfg(feature = "std")]
