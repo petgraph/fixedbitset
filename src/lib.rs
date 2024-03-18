@@ -44,8 +44,8 @@ pub(crate) const BYTES: usize = core::mem::size_of::<Block>();
 pub use block::Block;
 
 #[inline]
-fn div_rem(x: usize) -> (usize, usize) {
-    (x / BITS, x % BITS)
+fn div_rem(x: usize, denominator: usize) -> (usize, usize) {
+    (x / denominator, x % denominator)
 }
 
 /// `FixedBitSet` is a simple fixed size set of bits that each can
@@ -75,7 +75,7 @@ impl FixedBitSet {
     /// Create a new **FixedBitSet** with a specific number of bits,
     /// all initially clear.
     pub fn with_capacity(bits: usize) -> Self {
-        let (mut blocks, rem) = div_rem(bits);
+        let (mut blocks, rem) = div_rem(bits, Block::BITS);
         blocks += (rem > 0) as usize;
         FixedBitSet {
             data: vec![Block::NONE; blocks],
@@ -97,7 +97,7 @@ impl FixedBitSet {
     /// assert_eq!(format!("{:b}", bs), "0010");
     /// ```
     pub fn with_capacity_and_blocks<I: IntoIterator<Item = usize>>(bits: usize, blocks: I) -> Self {
-        let (mut n_blocks, rem) = (bits / Block::BITS, bits % Block::BITS);
+        let (mut n_blocks, rem) = div_rem(bits, Block::BITS);
         n_blocks += (rem > 0) as usize;
         let mut bitset = FixedBitSet {
             data: vec![Block::NONE; n_blocks],
@@ -111,7 +111,7 @@ impl FixedBitSet {
 
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
-        let (mut blocks, rem) = div_rem(bits);
+        let (mut blocks, rem) = div_rem(bits, Block::BITS);
         blocks += (rem > 0) as usize;
         if bits > self.length {
             self.length = bits;
@@ -128,9 +128,9 @@ impl FixedBitSet {
     }
 
     fn usize_len(&self) -> usize {
-        (self.length != 0)
-            .then(|| self.length / BITS + 1)
-            .unwrap_or(0)
+        let (mut blocks, rem) = div_rem(self.length, BITS);
+        blocks += (rem > 0) as usize;
+        blocks
     }
 
     /// Grows the internal size of the bitset before inserting a bit
@@ -142,7 +142,7 @@ impl FixedBitSet {
     pub fn grow_and_insert(&mut self, bits: usize) {
         self.grow(bits + 1);
 
-        let (blocks, rem) = div_rem(bits);
+        let (blocks, rem) = div_rem(bits, BITS);
         // SAFETY: The above grow ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(blocks) |= 1 << rem;
@@ -201,7 +201,7 @@ impl FixedBitSet {
     /// This is equivalent to [`bitset.count_ones(..) == 0`](FixedBitSet::count_ones).
     #[inline]
     pub fn is_clear(&self) -> bool {
-        self.data.iter().all(|block| *block == Block::NONE)
+        self.data.iter().all(|block| block.is_empty())
     }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -227,7 +227,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn contains_unchecked(&self, bit: usize) -> bool {
-        let (block, i) = div_rem(bit);
+        let (block, i) = div_rem(bit, BITS);
         (self.get_unchecked(block) & (1 << i)) != 0
     }
 
@@ -262,7 +262,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn insert_unchecked(&mut self, bit: usize) {
-        let (block, i) = div_rem(bit);
+        let (block, i) = div_rem(bit, BITS);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(block) |= 1 << i;
@@ -292,7 +292,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn remove_unchecked(&mut self, bit: usize) {
-        let (block, i) = div_rem(bit);
+        let (block, i) = div_rem(bit, BITS);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(block) &= !(1 << i);
@@ -320,7 +320,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn put_unchecked(&mut self, bit: usize) -> bool {
-        let (block, i) = div_rem(bit);
+        let (block, i) = div_rem(bit, BITS);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             let word = self.get_unchecked_mut(block);
@@ -353,7 +353,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn toggle_unchecked(&mut self, bit: usize) {
-        let (block, i) = div_rem(bit);
+        let (block, i) = div_rem(bit, BITS);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(block) ^= 1 << i;
@@ -383,7 +383,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn set_unchecked(&mut self, bit: usize, enabled: bool) {
-        let (block, i) = div_rem(bit);
+        let (block, i) = div_rem(bit, BITS);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         let elt = unsafe { self.get_unchecked_mut(block) };
         if enabled {
@@ -886,8 +886,8 @@ impl Masks {
             length
         );
 
-        let (first_block, first_rem) = div_rem(start);
-        let (last_block, last_rem) = div_rem(end);
+        let (first_block, first_rem) = div_rem(start, BITS);
+        let (last_block, last_rem) = div_rem(end, BITS);
 
         Masks {
             first_block,
@@ -1626,13 +1626,13 @@ mod tests {
             let mut bitset = FixedBitSet::with_capacity(s);
             bitset.insert_range(..);
             let mut t = s;
+            extern crate std;
             let mut iter = bitset.ones().alternate();
             loop {
                 match iter.next() {
                     None => break,
                     Some(_) => {
                         t -= 1;
-                        //println!("{:?} < {}", iter.size_hint(), t);
                         assert!(iter.size_hint().1.unwrap() >= t);
                         assert!(iter.size_hint().1.unwrap() <= t + 3 * BITS);
                     }
