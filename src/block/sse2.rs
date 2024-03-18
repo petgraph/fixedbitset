@@ -2,11 +2,7 @@
 use core::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use core::arch::x86_64::*;
-use core::{
-    cmp::Ordering,
-    hash::{Hash, Hasher},
-    ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
-};
+use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
@@ -117,51 +113,5 @@ impl PartialEq for Block {
                 _mm_test_all_zeros(neq, neq) == 1
             }
         }
-    }
-}
-
-impl Eq for Block {}
-
-impl PartialOrd for Block {
-    #[inline]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let a = self.into_usize_array();
-        let b = other.into_usize_array();
-        for i in 0..Self::USIZE_COUNT {
-            match a[i].cmp(&b[i]) {
-                Ordering::Equal => continue,
-                cmp => return Some(cmp),
-            }
-        }
-        Some(Ordering::Equal)
-    }
-}
-
-impl Ord for Block {
-    #[inline]
-    fn cmp(&self, other: &Self) -> Ordering {
-        let a = self.into_usize_array();
-        let b = other.into_usize_array();
-        for i in 0..Self::USIZE_COUNT {
-            match a[i].cmp(&b[i]) {
-                Ordering::Equal => continue,
-                cmp => return cmp,
-            }
-        }
-        Ordering::Equal
-    }
-}
-
-impl Default for Block {
-    #[inline]
-    fn default() -> Self {
-        Self::NONE
-    }
-}
-
-impl Hash for Block {
-    #[inline]
-    fn hash<H: Hasher>(&self, hasher: &mut H) {
-        self.into_usize_array().hash(hasher)
     }
 }

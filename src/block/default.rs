@@ -1,7 +1,7 @@
 use core::iter::Iterator;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 #[repr(transparent)]
 pub struct Block(usize);
 
