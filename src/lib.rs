@@ -21,6 +21,7 @@ use alloc::{
     vec::{IntoIter, Vec},
 };
 
+mod block;
 mod range;
 
 #[cfg(feature = "serde")]
@@ -28,19 +29,19 @@ extern crate serde;
 #[cfg(feature = "serde")]
 mod serde_impl;
 
-use core::fmt::Write;
 use core::fmt::{Binary, Display, Error, Formatter};
+use core::{fmt::Write, mem::ManuallyDrop};
 
-pub use range::IndexRange;
 use core::cmp::{Ord, Ordering};
 use core::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
+pub use range::IndexRange;
 
-pub(crate) const BITS: usize = core::mem::size_of::<Block>() * 8;
+pub(crate) const BITS: usize = core::mem::size_of::<usize>() * 8;
 #[cfg(feature = "serde")]
 pub(crate) const BYTES: usize = core::mem::size_of::<Block>();
 
-pub type Block = usize;
+pub use block::Block;
 
 #[inline]
 fn div_rem(x: usize) -> (usize, usize) {
@@ -77,7 +78,7 @@ impl FixedBitSet {
         let (mut blocks, rem) = div_rem(bits);
         blocks += (rem > 0) as usize;
         FixedBitSet {
-            data: vec![0; blocks],
+            data: vec![Block::NONE; blocks],
             length: bits,
         }
     }
@@ -95,22 +96,17 @@ impl FixedBitSet {
     /// let bs = fixedbitset::FixedBitSet::with_capacity_and_blocks(4, data);
     /// assert_eq!(format!("{:b}", bs), "0010");
     /// ```
-    pub fn with_capacity_and_blocks<I: IntoIterator<Item = Block>>(bits: usize, blocks: I) -> Self {
-        let (mut n_blocks, rem) = div_rem(bits);
+    pub fn with_capacity_and_blocks<I: IntoIterator<Item = usize>>(bits: usize, blocks: I) -> Self {
+        let (mut n_blocks, rem) = (bits / Block::BITS, bits % Block::BITS);
         n_blocks += (rem > 0) as usize;
-        let mut data: Vec<Block> = blocks.into_iter().collect();
-        // Pad data with zeros if smaller or truncate if larger
-        if data.len() != n_blocks {
-            data.resize(n_blocks, 0);
+        let mut bitset = FixedBitSet {
+            data: vec![Block::NONE; n_blocks],
+            length: bits,
+        };
+        for (subblock, value) in bitset.as_mut_slice().iter_mut().zip(blocks.into_iter()) {
+            *subblock = value;
         }
-        // Disable bits in blocks beyond capacity
-        let end = data.len() * BITS;
-        for (block, mask) in Masks::new(bits..end, end) {
-            // SAFETY: Masks cannot return a block index that is out of range.
-            let block = unsafe { data.get_unchecked_mut(block) };
-            *block &= !mask;
-        }
-        FixedBitSet { data, length: bits }
+        bitset
     }
 
     /// Grow capacity to **bits**, all new bits initialized to zero
@@ -119,8 +115,32 @@ impl FixedBitSet {
         blocks += (rem > 0) as usize;
         if bits > self.length {
             self.length = bits;
-            self.data.resize(blocks, 0);
+            self.data.resize(blocks, Block::NONE);
         }
+    }
+
+    unsafe fn get_unchecked(&self, subblock: usize) -> &usize {
+        self.data
+            .as_ptr()
+            .cast::<usize>()
+            .add(subblock)
+            .as_ref()
+            .unwrap_unchecked()
+    }
+
+    unsafe fn get_unchecked_mut(&mut self, subblock: usize) -> &mut usize {
+        self.data
+            .as_mut_ptr()
+            .cast::<usize>()
+            .add(subblock)
+            .as_mut()
+            .unwrap_unchecked()
+    }
+
+    fn usize_len(&self) -> usize {
+        (self.length != 0)
+            .then(|| self.length / BITS + 1)
+            .unwrap_or(0)
     }
 
     /// Grows the internal size of the bitset before inserting a bit
@@ -135,7 +155,7 @@ impl FixedBitSet {
         let (blocks, rem) = div_rem(bits);
         // SAFETY: The above grow ensures that the block is inside the Vec's allocation.
         unsafe {
-            *self.data.get_unchecked_mut(blocks) |= 1 << rem;
+            *self.get_unchecked_mut(blocks) |= 1 << rem;
         }
     }
 
@@ -191,7 +211,7 @@ impl FixedBitSet {
     /// This is equivalent to [`bitset.count_ones(..) == 0`](FixedBitSet::count_ones).
     #[inline]
     pub fn is_clear(&self) -> bool {
-        self.data.iter().all(|block| *block == 0)
+        self.data.iter().all(|block| *block == Block::NONE)
     }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -202,11 +222,9 @@ impl FixedBitSet {
     /// Note: Also available with index syntax: `bitset[bit]`.
     #[inline]
     pub fn contains(&self, bit: usize) -> bool {
-        let (block, i) = div_rem(bit);
-        match self.data.get(block) {
-            None => false,
-            Some(b) => (b & (1 << i)) != 0,
-        }
+        (bit < self.length)
+            .then(|| unsafe { self.contains_unchecked(bit) })
+            .unwrap_or(false)
     }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -220,14 +238,14 @@ impl FixedBitSet {
     #[inline]
     pub unsafe fn contains_unchecked(&self, bit: usize) -> bool {
         let (block, i) = div_rem(bit);
-        (self.data.get_unchecked(block) & (1 << i)) != 0
+        (self.get_unchecked(block) & (1 << i)) != 0
     }
 
     /// Clear all bits.
     #[inline]
     pub fn clear(&mut self) {
         for elt in &mut self.data {
-            *elt = 0
+            *elt = Block::NONE
         }
     }
 
@@ -257,7 +275,7 @@ impl FixedBitSet {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
-            *self.data.get_unchecked_mut(block) |= 1 << i;
+            *self.get_unchecked_mut(block) |= 1 << i;
         }
     }
 
@@ -287,7 +305,7 @@ impl FixedBitSet {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
-            *self.data.get_unchecked_mut(block) &= !(1 << i);
+            *self.get_unchecked_mut(block) &= !(1 << i);
         }
     }
 
@@ -315,7 +333,7 @@ impl FixedBitSet {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
-            let word = self.data.get_unchecked_mut(block);
+            let word = self.get_unchecked_mut(block);
             let prev = *word & (1 << i) != 0;
             *word |= 1 << i;
             prev
@@ -348,7 +366,7 @@ impl FixedBitSet {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
-            *self.data.get_unchecked_mut(block) ^= 1 << i;
+            *self.get_unchecked_mut(block) ^= 1 << i;
         }
     }
 
@@ -377,7 +395,7 @@ impl FixedBitSet {
     pub unsafe fn set_unchecked(&mut self, bit: usize, enabled: bool) {
         let (block, i) = div_rem(bit);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
-        let elt = unsafe { self.data.get_unchecked_mut(block) };
+        let elt = unsafe { self.get_unchecked_mut(block) };
         if enabled {
             *elt |= 1 << i;
         } else {
@@ -428,7 +446,7 @@ impl FixedBitSet {
         Masks::new(range, self.length)
             .map(|(block, mask)| {
                 // SAFETY: Masks cannot return a block index that is out of range.
-                let value = unsafe { *self.data.get_unchecked(block) };
+                let value = unsafe { *self.get_unchecked(block) };
                 (value & mask).count_ones() as usize
             })
             .sum()
@@ -443,7 +461,7 @@ impl FixedBitSet {
     pub fn set_range<T: IndexRange>(&mut self, range: T, enabled: bool) {
         for (block, mask) in Masks::new(range, self.length) {
             // SAFETY: Masks cannot return a block index that is out of range.
-            let block = unsafe { self.data.get_unchecked_mut(block) };
+            let block = unsafe { self.get_unchecked_mut(block) };
             if enabled {
                 *block |= mask;
             } else {
@@ -471,22 +489,28 @@ impl FixedBitSet {
     pub fn toggle_range<T: IndexRange>(&mut self, range: T) {
         for (block, mask) in Masks::new(range, self.length) {
             // SAFETY: Masks cannot return a block index that is out of range.
-            let block = unsafe { self.data.get_unchecked_mut(block) };
+            let block = unsafe { self.get_unchecked_mut(block) };
             *block ^= mask;
         }
     }
 
     /// View the bitset as a slice of `Block` blocks
     #[inline]
-    pub fn as_slice(&self) -> &[Block] {
-        &self.data
+    pub fn as_slice(&self) -> &[usize] {
+        unsafe {
+            let ptr = self.data.as_ptr().cast::<usize>();
+            core::slice::from_raw_parts(ptr, self.usize_len())
+        }
     }
 
     /// View the bitset as a mutable slice of `Block` blocks. Writing past the bitlength in the last
     /// will cause `contains` to return potentially incorrect results for bits past the bitlength.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [Block] {
-        &mut self.data
+    pub fn as_mut_slice(&mut self) -> &mut [usize] {
+        unsafe {
+            let ptr = self.data.as_mut_ptr().cast::<usize>();
+            core::slice::from_raw_parts_mut(ptr, self.usize_len())
+        }
     }
 
     /// Iterates over all enabled bits.
@@ -519,24 +543,31 @@ impl FixedBitSet {
     ///
     /// Iterator element is the index of the `1` bit, type `usize`.
     /// Unlike `ones`, this function consumes the `FixedBitset`.
-    pub fn into_ones(mut self) -> IntoOnes {
-        if self.data.len() == 0 {
+    pub fn into_ones(self) -> IntoOnes {
+        let mut data = unsafe {
+            let mut data = ManuallyDrop::new(self.data);
+            let ptr = data.as_mut_ptr().cast();
+            let len = data.len() * Block::USIZE_COUNT;
+            let capacity = data.capacity() * Block::USIZE_COUNT;
+            Vec::from_raw_parts(ptr, len, capacity)
+        };
+        if data.len() == 0 {
             IntoOnes {
                 bitset_front: 0,
                 bitset_back: 0,
                 block_idx_front: 0,
                 block_idx_back: 0,
-                remaining_blocks: self.data.into_iter(),
+                remaining_blocks: data.into_iter(),
             }
         } else {
-            let first_block = self.data.remove(0);
-            let last_block = self.data.pop().unwrap_or(0);
+            let first_block = data.remove(0);
+            let last_block = data.pop().unwrap_or(0);
             IntoOnes {
                 bitset_front: first_block,
                 bitset_back: last_block,
                 block_idx_front: 0,
-                block_idx_back: (1 + self.data.len()) * BITS,
-                remaining_blocks: self.data.into_iter(),
+                block_idx_back: (1 + data.len()) * BITS,
+                remaining_blocks: data.into_iter(),
             }
         }
     }
@@ -615,7 +646,7 @@ impl FixedBitSet {
         }
         let mn = core::cmp::min(self.data.len(), other.data.len());
         for wd in &mut self.data[mn..] {
-            *wd = 0;
+            *wd = Block::NONE;
         }
     }
 
@@ -653,7 +684,7 @@ impl FixedBitSet {
         self.data
             .iter()
             .zip(other.data.iter())
-            .all(|(x, y)| x & y == 0)
+            .all(|(x, y)| *x & *y == Block::NONE)
     }
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
@@ -662,8 +693,12 @@ impl FixedBitSet {
         self.data
             .iter()
             .zip(other.data.iter())
-            .all(|(x, y)| x & !y == 0)
-            && self.data.iter().skip(other.data.len()).all(|x| *x == 0)
+            .all(|(x, y)| x.andnot(*y) == Block::NONE)
+            && self
+                .data
+                .iter()
+                .skip(other.data.len())
+                .all(|x| *x == Block::NONE)
     }
 
     /// Returns `true` if the set is a superset of another, i.e. `self` contains
@@ -843,9 +878,9 @@ impl<'a> FusedIterator for Union<'a> {}
 
 struct Masks {
     first_block: usize,
-    first_mask: Block,
+    first_mask: usize,
     last_block: usize,
-    last_mask: Block,
+    last_mask: usize,
 }
 
 impl Masks {
@@ -866,16 +901,16 @@ impl Masks {
 
         Masks {
             first_block,
-            first_mask: Block::max_value() << first_rem,
+            first_mask: usize::max_value() << first_rem,
             last_block,
-            last_mask: (Block::max_value() >> 1) >> (BITS - last_rem - 1),
+            last_mask: (usize::max_value() >> 1) >> (BITS - last_rem - 1),
             // this is equivalent to `MAX >> (BITS - x)` with correct semantics when x == 0.
         }
     }
 }
 
 impl Iterator for Masks {
-    type Item = (usize, Block);
+    type Item = (usize, usize);
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.first_block.cmp(&self.last_block) {
@@ -916,16 +951,16 @@ impl ExactSizeIterator for Masks {}
 ///
 /// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Ones<'a> {
-    bitset_front: Block,
-    bitset_back: Block,
+    bitset_front: usize,
+    bitset_back: usize,
     block_idx_front: usize,
     block_idx_back: usize,
-    remaining_blocks: core::slice::Iter<'a, Block>,
+    remaining_blocks: core::slice::Iter<'a, usize>,
 }
 
 impl<'a> Ones<'a> {
     #[inline]
-    pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
+    pub fn last_positive_bit_and_unset(n: &mut usize) -> usize {
         // Find the last set bit using x & -x
         let last_bit = *n & n.wrapping_neg();
 
@@ -939,12 +974,12 @@ impl<'a> Ones<'a> {
     }
 
     #[inline]
-    fn first_positive_bit_and_unset(n: &mut Block) -> usize {
+    fn first_positive_bit_and_unset(n: &mut usize) -> usize {
         /* Identify the first non zero bit */
         let bit_idx = n.leading_zeros();
 
         /* set that bit to zero */
-        let mask = !((1 as Block) << (BITS as u32 - bit_idx - 1));
+        let mask = !((1 as usize) << (BITS as u32 - bit_idx - 1));
         n.bitand_assign(mask);
 
         bit_idx as usize
@@ -1029,10 +1064,10 @@ impl<'a> FusedIterator for Ones<'a> {}
 ///
 /// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Zeroes<'a> {
-    bitset: Block,
+    bitset: usize,
     block_idx: usize,
     len: usize,
-    remaining_blocks: core::slice::Iter<'a, Block>,
+    remaining_blocks: core::slice::Iter<'a, usize>,
 }
 
 impl<'a> Iterator for Zeroes<'a> {
@@ -1044,7 +1079,7 @@ impl<'a> Iterator for Zeroes<'a> {
             self.bitset = !*self.remaining_blocks.next()?;
             self.block_idx += BITS;
         }
-        let t = self.bitset & (0 as Block).wrapping_sub(self.bitset);
+        let t = self.bitset & (0 as usize).wrapping_sub(self.bitset);
         let r = self.bitset.trailing_zeros() as usize;
         self.bitset ^= t;
         let bit = self.block_idx + r;
@@ -1117,16 +1152,16 @@ impl FromIterator<usize> for FixedBitSet {
 }
 
 pub struct IntoOnes {
-    bitset_front: Block,
-    bitset_back: Block,
+    bitset_front: usize,
+    bitset_back: usize,
     block_idx_front: usize,
     block_idx_back: usize,
-    remaining_blocks: IntoIter<Block>,
+    remaining_blocks: IntoIter<usize>,
 }
 
 impl IntoOnes {
     #[inline]
-    pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
+    pub fn last_positive_bit_and_unset(n: &mut usize) -> usize {
         // Find the last set bit using x & -x
         let last_bit = *n & n.wrapping_neg();
 
@@ -1140,12 +1175,12 @@ impl IntoOnes {
     }
 
     #[inline]
-    fn first_positive_bit_and_unset(n: &mut Block) -> usize {
+    fn first_positive_bit_and_unset(n: &mut usize) -> usize {
         /* Identify the first non zero bit */
         let bit_idx = n.leading_zeros();
 
         /* set that bit to zero */
-        let mask = !((1 as Block) << (BITS as u32 - bit_idx - 1));
+        let mask = !((1 as usize) << (BITS as u32 - bit_idx - 1));
         n.bitand_assign(mask);
 
         bit_idx as usize
@@ -2302,8 +2337,8 @@ mod tests {
         fb.put(4);
         fb.put(2);
 
-        assert_eq!(format!("{}", fb), "00101000");
-        assert_eq!(format!("{:#}", fb), "0b00101000");
+        assert_eq!(alloc::format!("{}", fb), "00101000");
+        assert_eq!(alloc::format!("{:#}", fb), "0b00101000");
     }
 
     // TODO: Rewite this test to be platform agnostic.
