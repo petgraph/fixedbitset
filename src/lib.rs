@@ -13,7 +13,7 @@
 //!
 #![doc(html_root_url = "https://docs.rs/fixedbitset/0.4.2/")]
 #![no_std]
-#![forbid(clippy::undocumented_unsafe_blocks)]
+#![deny(clippy::undocumented_unsafe_blocks)]
 
 extern crate alloc;
 use alloc::{
@@ -213,6 +213,7 @@ impl FixedBitSet {
     #[inline]
     pub fn contains(&self, bit: usize) -> bool {
         (bit < self.length)
+            // SAFETY: The above check ensures that the block and bit are within bounds.
             .then(|| unsafe { self.contains_unchecked(bit) })
             .unwrap_or(false)
     }
@@ -487,6 +488,10 @@ impl FixedBitSet {
     /// View the bitset as a slice of `Block` blocks
     #[inline]
     pub fn as_slice(&self) -> &[usize] {
+        // SAFETY: The bits from both usize and Block are required to be reinterprettable, and
+        // neither have any padding or alignment issues. The slice constructed is within bounds
+        // of the underlying allocation. This function is called with a read-only  borrow so
+        // no other write can happen as long as the returned borrow lives.
         unsafe {
             let ptr = self.data.as_ptr().cast::<usize>();
             core::slice::from_raw_parts(ptr, self.usize_len())
@@ -497,6 +502,10 @@ impl FixedBitSet {
     /// will cause `contains` to return potentially incorrect results for bits past the bitlength.
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [usize] {
+        // SAFETY: The bits from both usize and Block are required to be reinterprettable, and
+        // neither have any padding or alignment issues. The slice constructed is within bounds
+        // of the underlying allocation. This function is called with a mutable borrow so
+        // no other read or write can happen as long as the returned borrow lives.
         unsafe {
             let ptr = self.data.as_mut_ptr().cast::<usize>();
             core::slice::from_raw_parts_mut(ptr, self.usize_len())
@@ -534,6 +543,8 @@ impl FixedBitSet {
     /// Iterator element is the index of the `1` bit, type `usize`.
     /// Unlike `ones`, this function consumes the `FixedBitset`.
     pub fn into_ones(self) -> IntoOnes {
+        // SAFETY: This is using the exact same allocation pattern, size, and capacity
+        // making this reconstruction of the Vec safe.
         let mut data = unsafe {
             let mut data = ManuallyDrop::new(self.data);
             let ptr = data.as_mut_ptr().cast();
@@ -541,7 +552,7 @@ impl FixedBitSet {
             let capacity = data.capacity() * Block::USIZE_COUNT;
             Vec::from_raw_parts(ptr, len, capacity)
         };
-        if data.len() == 0 {
+        if data.is_empty() {
             IntoOnes {
                 bitset_front: 0,
                 bitset_back: 0,
@@ -752,12 +763,10 @@ impl<'a> Iterator for Difference<'a> {
 
 impl<'a> DoubleEndedIterator for Difference<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        for nxt in self.iter.by_ref().rev() {
-            if !self.other.contains(nxt) {
-                return Some(nxt);
-            }
-        }
-        None
+        self.iter
+            .by_ref()
+            .rev()
+            .find(|&nxt| !self.other.contains(nxt))
     }
 }
 
@@ -808,12 +817,7 @@ impl<'a> Iterator for Intersection<'a> {
     #[inline]
     #[allow(clippy::manual_find)]
     fn next(&mut self) -> Option<Self::Item> {
-        for nxt in self.iter.by_ref() {
-            if self.other.contains(nxt) {
-                return Some(nxt);
-            }
-        }
-        None
+        self.iter.by_ref().find(|&nxt| self.other.contains(nxt))
     }
 
     #[inline]
@@ -824,12 +828,10 @@ impl<'a> Iterator for Intersection<'a> {
 
 impl<'a> DoubleEndedIterator for Intersection<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        for nxt in self.iter.by_ref().rev() {
-            if self.other.contains(nxt) {
-                return Some(nxt);
-            }
-        }
-        None
+        self.iter
+            .by_ref()
+            .rev()
+            .find(|&nxt| self.other.contains(nxt))
     }
 }
 
@@ -969,7 +971,7 @@ impl<'a> Ones<'a> {
         let bit_idx = n.leading_zeros();
 
         /* set that bit to zero */
-        let mask = !((1 as usize) << (BITS as u32 - bit_idx - 1));
+        let mask = !((1_usize) << (BITS as u32 - bit_idx - 1));
         n.bitand_assign(mask);
 
         bit_idx as usize
@@ -1069,7 +1071,7 @@ impl<'a> Iterator for Zeroes<'a> {
             self.bitset = !*self.remaining_blocks.next()?;
             self.block_idx += BITS;
         }
-        let t = self.bitset & (0 as usize).wrapping_sub(self.bitset);
+        let t = self.bitset & (0_usize).wrapping_sub(self.bitset);
         let r = self.bitset.trailing_zeros() as usize;
         self.bitset ^= t;
         let bit = self.block_idx + r;
@@ -1170,7 +1172,7 @@ impl IntoOnes {
         let bit_idx = n.leading_zeros();
 
         /* set that bit to zero */
-        let mask = !((1 as usize) << (BITS as u32 - bit_idx - 1));
+        let mask = !((1_usize) << (BITS as u32 - bit_idx - 1));
         n.bitand_assign(mask);
 
         bit_idx as usize
@@ -1249,7 +1251,7 @@ impl Iterator for IntoOnes {
 }
 
 // Ones will continue to return None once it first returns None.
-impl<'a> FusedIterator for IntoOnes {}
+impl FusedIterator for IntoOnes {}
 
 impl<'a> BitAnd for &'a FixedBitSet {
     type Output = FixedBitSet;

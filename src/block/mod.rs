@@ -42,15 +42,7 @@ impl Eq for Block {}
 impl PartialOrd for Block {
     #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let a = self.into_usize_array();
-        let b = other.into_usize_array();
-        for i in 0..Self::USIZE_COUNT {
-            match a[i].cmp(&b[i]) {
-                Ordering::Equal => continue,
-                cmp => return Some(cmp),
-            }
-        }
-        Some(Ordering::Equal)
+        Some(self.cmp(other))
     }
 }
 
