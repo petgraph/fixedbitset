@@ -1595,7 +1595,8 @@ mod tests {
 
     #[test]
     fn size_hint() {
-        for s in 0..1000 {
+        let iters = if cfg!(miri) { 250 } else { 1000 };
+        for s in 0..iters {
             let mut bitset = FixedBitSet::with_capacity(s);
             bitset.insert_range(..);
             let mut t = s;
@@ -1617,7 +1618,8 @@ mod tests {
 
     #[test]
     fn size_hint_alternate() {
-        for s in 0..1000 {
+        let iters = if cfg!(miri) { 250 } else { 1000 };
+        for s in 0..iters {
             let mut bitset = FixedBitSet::with_capacity(s);
             bitset.insert_range(..);
             let mut t = s;
@@ -1678,7 +1680,8 @@ mod tests {
 
     #[test]
     fn count_ones_panic() {
-        for i in 1..128 {
+        let iters = if cfg!(miri) { 48 } else { 128 };
+        for i in 1..iters {
             let fb = FixedBitSet::with_capacity(i);
             for j in 0..fb.len() + 1 {
                 for k in j..fb.len() + 1 {
