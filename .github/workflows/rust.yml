@@ -12,8 +12,7 @@ env:
 
 jobs:
   # Ensure the crate builds
-  build:
-
+  build_x86_64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -36,6 +35,7 @@ jobs:
         cargo test --verbose --features "$FEATURES" &&
         cargo test --verbose --release --features "$FEATURES"
 
+  build_aarch64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -54,7 +54,6 @@ jobs:
 
   # Use clippy to lint for code smells
   clippy:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -75,13 +74,11 @@ jobs:
 
   # Enforce rustfmt formatting
   formatting:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
         # Run formatting checks only on stable
         rust: [stable]
-
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
@@ -96,13 +93,11 @@ jobs:
 
   # Ensure the benchmarks compile
   benchmark_compiles:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
         # Check builds only on stable
         rust: [stable]
-
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
