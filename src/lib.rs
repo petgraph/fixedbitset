@@ -17,10 +17,7 @@
 #![deny(clippy::undocumented_unsafe_blocks)]
 
 extern crate alloc;
-use alloc::{
-    vec,
-    vec::{IntoIter, Vec},
-};
+use alloc::{vec, vec::Vec};
 
 mod block;
 mod range;
@@ -30,8 +27,8 @@ extern crate serde;
 #[cfg(feature = "serde")]
 mod serde_impl;
 
+use core::fmt::Write;
 use core::fmt::{Binary, Display, Error, Formatter};
-use core::{fmt::Write, mem::ManuallyDrop};
 
 use core::cmp::{Ord, Ordering};
 use core::iter::{Chain, FusedIterator};
@@ -545,33 +542,24 @@ impl FixedBitSet {
     /// Iterator element is the index of the `1` bit, type `usize`.
     /// Unlike `ones`, this function consumes the `FixedBitset`.
     pub fn into_ones(self) -> IntoOnes {
-        // SAFETY: This is using the exact same allocation pattern, size, and capacity
-        // making this reconstruction of the Vec safe.
-        let mut data = unsafe {
-            let mut data = ManuallyDrop::new(self.data);
-            let ptr = data.as_mut_ptr().cast();
-            let len = data.len() * SimdBlock::USIZE_COUNT;
-            let capacity = data.capacity() * SimdBlock::USIZE_COUNT;
-            Vec::from_raw_parts(ptr, len, capacity)
-        };
-        if data.is_empty() {
-            IntoOnes {
-                bitset_front: 0,
-                bitset_back: 0,
-                block_idx_front: 0,
-                block_idx_back: 0,
-                remaining_blocks: data.into_iter(),
-            }
-        } else {
-            let first_block = data.remove(0);
-            let last_block = data.pop().unwrap_or(0);
-            IntoOnes {
-                bitset_front: first_block,
-                bitset_back: last_block,
-                block_idx_front: 0,
-                block_idx_back: (1 + data.len()) * BITS,
-                remaining_blocks: data.into_iter(),
-            }
+        let ptr = self.data.as_ptr().cast();
+        let len = self.data.len() * SimdBlock::USIZE_COUNT;
+        // SAFETY:
+        // - ptr comes from self.data, so it is valid;
+        // - self.data is valid for self.data.len() SimdBlocks,
+        //   which is exactly self.data.len() * SimdBlock::USIZE_COUNT usizes;
+        // - we will keep this slice around only as long as self.data is,
+        //   so it won't become dangling.
+        let slice = unsafe { core::slice::from_raw_parts(ptr, len) };
+        let mut iter = slice.iter().copied();
+
+        IntoOnes {
+            bitset_front: iter.next().unwrap_or(0),
+            bitset_back: iter.next_back().unwrap_or(0),
+            block_idx_front: 0,
+            block_idx_back: len.saturating_sub(1) * BITS,
+            remaining_blocks: iter,
+            _buf: self.data,
         }
     }
 
@@ -1151,7 +1139,9 @@ pub struct IntoOnes {
     bitset_back: Block,
     block_idx_front: usize,
     block_idx_back: usize,
-    remaining_blocks: IntoIter<usize>,
+    remaining_blocks: core::iter::Copied<core::slice::Iter<'static, usize>>,
+    // Keep buf along so that `remaining_blocks` remains valid.
+    _buf: Vec<SimdBlock>,
 }
 
 impl IntoOnes {
@@ -1605,7 +1595,8 @@ mod tests {
 
     #[test]
     fn size_hint() {
-        for s in 0..1000 {
+        let iters = if cfg!(miri) { 250 } else { 1000 };
+        for s in 0..iters {
             let mut bitset = FixedBitSet::with_capacity(s);
             bitset.insert_range(..);
             let mut t = s;
@@ -1627,7 +1618,8 @@ mod tests {
 
     #[test]
     fn size_hint_alternate() {
-        for s in 0..1000 {
+        let iters = if cfg!(miri) { 250 } else { 1000 };
+        for s in 0..iters {
             let mut bitset = FixedBitSet::with_capacity(s);
             bitset.insert_range(..);
             let mut t = s;
@@ -1688,7 +1680,8 @@ mod tests {
 
     #[test]
     fn count_ones_panic() {
-        for i in 1..128 {
+        let iters = if cfg!(miri) { 48 } else { 128 };
+        for i in 1..iters {
             let fb = FixedBitSet::with_capacity(i);
             for j in 0..fb.len() + 1 {
                 for k in j..fb.len() + 1 {
