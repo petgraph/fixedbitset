@@ -18,9 +18,11 @@ jobs:
     strategy:
       matrix:
         rust: [1.56.0, stable, nightly]
-
+        features: ["+avx2", "+sse2", "-avx2,-sse2"]
+    env:
+      RUSTCFLAGS: "-C target-features={{matrix.features}}"
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
       with:
         profile: minimal
@@ -43,7 +45,7 @@ jobs:
         rust: [stable]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
       with:
         profile: minimal
@@ -64,7 +66,7 @@ jobs:
         rust: [stable]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
       with:
         profile: minimal
@@ -85,7 +87,7 @@ jobs:
         rust: [stable]
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
       with:
         profile: minimal
@@ -96,3 +98,15 @@ jobs:
       run: |
         cd benches
         cargo bench --bench benches --no-run
+
+  build-wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+      - name: Check wasm
+        run: cargo check --target wasm32-unknown-unknown
