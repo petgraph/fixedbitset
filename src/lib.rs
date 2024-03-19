@@ -37,11 +37,12 @@ use core::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 pub use range::IndexRange;
 
-pub(crate) const BITS: usize = core::mem::size_of::<usize>() * 8;
+pub(crate) const BITS: usize = core::mem::size_of::<Block>() * 8;
 #[cfg(feature = "serde")]
 pub(crate) const BYTES: usize = core::mem::size_of::<Block>();
 
-pub use block::Block;
+use block::Block as SimdBlock;
+pub type Block = usize;
 
 #[inline]
 fn div_rem(x: usize, denominator: usize) -> (usize, usize) {
@@ -58,7 +59,7 @@ fn div_rem(x: usize, denominator: usize) -> (usize, usize) {
 /// [0,1,0].
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct FixedBitSet {
-    pub(crate) data: Vec<Block>,
+    pub(crate) data: Vec<SimdBlock>,
     /// length in bits
     pub(crate) length: usize,
 }
@@ -75,10 +76,10 @@ impl FixedBitSet {
     /// Create a new **FixedBitSet** with a specific number of bits,
     /// all initially clear.
     pub fn with_capacity(bits: usize) -> Self {
-        let (mut blocks, rem) = div_rem(bits, Block::BITS);
+        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
         FixedBitSet {
-            data: vec![Block::NONE; blocks],
+            data: vec![SimdBlock::NONE; blocks],
             length: bits,
         }
     }
@@ -96,11 +97,11 @@ impl FixedBitSet {
     /// let bs = fixedbitset::FixedBitSet::with_capacity_and_blocks(4, data);
     /// assert_eq!(format!("{:b}", bs), "0010");
     /// ```
-    pub fn with_capacity_and_blocks<I: IntoIterator<Item = usize>>(bits: usize, blocks: I) -> Self {
-        let (mut n_blocks, rem) = div_rem(bits, Block::BITS);
+    pub fn with_capacity_and_blocks<I: IntoIterator<Item = Block>>(bits: usize, blocks: I) -> Self {
+        let (mut n_blocks, rem) = div_rem(bits, SimdBlock::BITS);
         n_blocks += (rem > 0) as usize;
         let mut bitset = FixedBitSet {
-            data: vec![Block::NONE; n_blocks],
+            data: vec![SimdBlock::NONE; n_blocks],
             length: bits,
         };
         for (subblock, value) in bitset.as_mut_slice().iter_mut().zip(blocks.into_iter()) {
@@ -111,20 +112,20 @@ impl FixedBitSet {
 
     /// Grow capacity to **bits**, all new bits initialized to zero
     pub fn grow(&mut self, bits: usize) {
-        let (mut blocks, rem) = div_rem(bits, Block::BITS);
+        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
         if bits > self.length {
             self.length = bits;
-            self.data.resize(blocks, Block::NONE);
+            self.data.resize(blocks, SimdBlock::NONE);
         }
     }
 
-    unsafe fn get_unchecked(&self, subblock: usize) -> &usize {
-        &*self.data.as_ptr().cast::<usize>().add(subblock)
+    unsafe fn get_unchecked(&self, subblock: usize) -> &Block {
+        &*self.data.as_ptr().cast::<Block>().add(subblock)
     }
 
-    unsafe fn get_unchecked_mut(&mut self, subblock: usize) -> &mut usize {
-        &mut *self.data.as_mut_ptr().cast::<usize>().add(subblock)
+    unsafe fn get_unchecked_mut(&mut self, subblock: usize) -> &mut Block {
+        &mut *self.data.as_mut_ptr().cast::<Block>().add(subblock)
     }
 
     fn usize_len(&self) -> usize {
@@ -236,7 +237,7 @@ impl FixedBitSet {
     #[inline]
     pub fn clear(&mut self) {
         for elt in &mut self.data {
-            *elt = Block::NONE
+            *elt = SimdBlock::NONE
         }
     }
 
@@ -487,13 +488,13 @@ impl FixedBitSet {
 
     /// View the bitset as a slice of `Block` blocks
     #[inline]
-    pub fn as_slice(&self) -> &[usize] {
+    pub fn as_slice(&self) -> &[Block] {
         // SAFETY: The bits from both usize and Block are required to be reinterprettable, and
         // neither have any padding or alignment issues. The slice constructed is within bounds
         // of the underlying allocation. This function is called with a read-only  borrow so
         // no other write can happen as long as the returned borrow lives.
         unsafe {
-            let ptr = self.data.as_ptr().cast::<usize>();
+            let ptr = self.data.as_ptr().cast::<Block>();
             core::slice::from_raw_parts(ptr, self.usize_len())
         }
     }
@@ -501,13 +502,13 @@ impl FixedBitSet {
     /// View the bitset as a mutable slice of `Block` blocks. Writing past the bitlength in the last
     /// will cause `contains` to return potentially incorrect results for bits past the bitlength.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut [usize] {
+    pub fn as_mut_slice(&mut self) -> &mut [Block] {
         // SAFETY: The bits from both usize and Block are required to be reinterprettable, and
         // neither have any padding or alignment issues. The slice constructed is within bounds
         // of the underlying allocation. This function is called with a mutable borrow so
         // no other read or write can happen as long as the returned borrow lives.
         unsafe {
-            let ptr = self.data.as_mut_ptr().cast::<usize>();
+            let ptr = self.data.as_mut_ptr().cast::<Block>();
             core::slice::from_raw_parts_mut(ptr, self.usize_len())
         }
     }
@@ -548,8 +549,8 @@ impl FixedBitSet {
         let mut data = unsafe {
             let mut data = ManuallyDrop::new(self.data);
             let ptr = data.as_mut_ptr().cast();
-            let len = data.len() * Block::USIZE_COUNT;
-            let capacity = data.capacity() * Block::USIZE_COUNT;
+            let len = data.len() * SimdBlock::USIZE_COUNT;
+            let capacity = data.capacity() * SimdBlock::USIZE_COUNT;
             Vec::from_raw_parts(ptr, len, capacity)
         };
         if data.is_empty() {
@@ -647,7 +648,7 @@ impl FixedBitSet {
         }
         let mn = core::cmp::min(self.data.len(), other.data.len());
         for wd in &mut self.data[mn..] {
-            *wd = Block::NONE;
+            *wd = SimdBlock::NONE;
         }
     }
 
@@ -870,9 +871,9 @@ impl<'a> FusedIterator for Union<'a> {}
 
 struct Masks {
     first_block: usize,
-    first_mask: Block,
+    first_mask: SimdBlock,
     last_block: usize,
-    last_mask: Block,
+    last_mask: SimdBlock,
 }
 
 impl Masks {
@@ -888,27 +889,27 @@ impl Masks {
             length
         );
 
-        let (first_block, first_rem) = div_rem(start, Block::BITS);
-        let (last_block, last_rem) = div_rem(end, Block::BITS);
+        let (first_block, first_rem) = div_rem(start, SimdBlock::BITS);
+        let (last_block, last_rem) = div_rem(end, SimdBlock::BITS);
 
         Masks {
             first_block,
-            first_mask: Block::upper_mask(first_rem),
+            first_mask: SimdBlock::upper_mask(first_rem),
             last_block,
-            last_mask: Block::lower_mask(last_rem),
+            last_mask: SimdBlock::lower_mask(last_rem),
         }
     }
 }
 
 impl Iterator for Masks {
-    type Item = (usize, Block);
+    type Item = (usize, SimdBlock);
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.first_block.cmp(&self.last_block) {
             Ordering::Less => {
                 let res = (self.first_block, self.first_mask);
                 self.first_block += 1;
-                self.first_mask = Block::ALL;
+                self.first_mask = SimdBlock::ALL;
                 Some(res)
             }
             Ordering::Equal => {
@@ -1143,8 +1144,8 @@ impl FromIterator<usize> for FixedBitSet {
 }
 
 pub struct IntoOnes {
-    bitset_front: usize,
-    bitset_back: usize,
+    bitset_front: Block,
+    bitset_back: Block,
     block_idx_front: usize,
     block_idx_back: usize,
     remaining_blocks: IntoIter<usize>,
@@ -1152,7 +1153,7 @@ pub struct IntoOnes {
 
 impl IntoOnes {
     #[inline]
-    pub fn last_positive_bit_and_unset(n: &mut usize) -> usize {
+    pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
         // Find the last set bit using x & -x
         let last_bit = *n & n.wrapping_neg();
 
@@ -1166,7 +1167,7 @@ impl IntoOnes {
     }
 
     #[inline]
-    fn first_positive_bit_and_unset(n: &mut usize) -> usize {
+    fn first_positive_bit_and_unset(n: &mut Block) -> usize {
         /* Identify the first non zero bit */
         let bit_idx = n.leading_zeros();
 

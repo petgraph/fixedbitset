@@ -1,10 +1,11 @@
 #[cfg(not(feature = "std"))]
 use core as std;
 
-use crate::{FixedBitSet, BYTES};
+use crate::{Block, FixedBitSet, BYTES};
+use alloc::vec::Vec;
+use core::{convert::TryFrom, fmt};
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
-use std::{convert::TryFrom, fmt};
 
 struct BitSetByteSerializer<'a>(&'a FixedBitSet);
 
@@ -28,7 +29,7 @@ impl<'a> Serialize for BitSetByteSerializer<'a> {
         let len = self.0.as_slice().len() * BYTES;
         // PERF: Figure out a way to do this without allocating.
         let mut temp = Vec::with_capacity(len);
-        for block in &self.0.as_slice() {
+        for block in self.0.as_slice() {
             temp.extend(&block.to_le_bytes());
         }
         serializer.serialize_bytes(&temp)
@@ -43,6 +44,22 @@ impl<'de> Deserialize<'de> for FixedBitSet {
         enum Field {
             Length,
             Data,
+        }
+
+        fn bytes_to_data(length: usize, input: &[u8]) -> Vec<Block> {
+            let block_len = length / BYTES + 1;
+            let mut data = Vec::with_capacity(block_len);
+            for chunk in input.chunks(BYTES) {
+                match <&[u8; BYTES]>::try_from(chunk) {
+                    Ok(bytes) => data.push(usize::from_le_bytes(*bytes)),
+                    Err(_) => {
+                        let mut bytes = [0u8; BYTES];
+                        bytes[0..BYTES].copy_from_slice(chunk);
+                        data.push(usize::from_le_bytes(bytes));
+                    }
+                }
+            }
+            data
         }
 
         impl<'de> Deserialize<'de> for Field {
@@ -91,10 +108,11 @@ impl<'de> Deserialize<'de> for FixedBitSet {
                 let length = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let data = seq
+                let data: &[u8] = seq
                     .next_element()?
                     .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                Ok(FixedBitSet { length, data })
+                let data = bytes_to_data(length, data);
+                Ok(FixedBitSet::with_capacity_and_blocks(length, data))
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<FixedBitSet, V::Error>
@@ -120,20 +138,9 @@ impl<'de> Deserialize<'de> for FixedBitSet {
                     }
                 }
                 let length = length.ok_or_else(|| de::Error::missing_field("length"))?;
-                let temp = temp.ok_or_else(|| de::Error::missing_field("data"))?;
-                let block_len = length / BYTES + 1;
-                let mut data = Vec::with_capacity(block_len);
-                for chunk in temp.chunks(BYTES) {
-                    match <&[u8; BYTES]>::try_from(chunk) {
-                        Ok(bytes) => data.push(usize::from_le_bytes(*bytes)),
-                        Err(_) => {
-                            let mut bytes = [0u8; BYTES];
-                            bytes[0..BYTES].copy_from_slice(chunk);
-                            data.push(usize::from_le_bytes(bytes));
-                        }
-                    }
-                }
-                Ok(FixedBitSet { length, data })
+                let data = temp.ok_or_else(|| de::Error::missing_field("data"))?;
+                let data = bytes_to_data(length, data);
+                Ok(FixedBitSet::with_capacity_and_blocks(length, data))
             }
         }
 
