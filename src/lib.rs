@@ -1,17 +1,18 @@
 //! `FixedBitSet` is a simple fixed size set of bits.
 //!
-//!
 //! ### Crate features
 //!
 //! - `std` (default feature)  
 //!   Disabling this feature disables using std and instead uses crate alloc.
-//!   Requires Rust 1.36 to disable.
 //!
-//! ### Rust Version
+//! ### SIMD Acceleration
+//! `fixedbitset` is written with SIMD in mind. The backing store and set operations will use aligned SIMD data types and instructions when compiling
+//! for compatible target platforms. The use of SIMD generally enables better performance in many set and batch operations (i.e. intersection/union/inserting a range).
 //!
-//! This version of fixedbitset requires Rust 1.39 or later.
+//!  When SIMD is not available on the target, the crate will gracefully fallback to a default implementation.  It is intended to add support for other SIMD architectures
+//! once they appear in stable Rust.
 //!
-#![doc(html_root_url = "https://docs.rs/fixedbitset/0.4.2/")]
+//! Currently only SSE2/AVX2 on x86/x86_64 and wasm32 SIMD are supported as this is what stable Rust supports.
 #![no_std]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
@@ -33,7 +34,7 @@ use core::fmt::{Binary, Display, Error, Formatter};
 use core::{fmt::Write, mem::ManuallyDrop};
 
 use core::cmp::{Ord, Ordering};
-use core::iter::{Chain, ExactSizeIterator, FromIterator, FusedIterator};
+use core::iter::{Chain, FusedIterator};
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 pub use range::IndexRange;
 
@@ -1054,9 +1055,9 @@ impl<'a> Iterator for Ones<'a> {
 // Ones will continue to return None once it first returns None.
 impl<'a> FusedIterator for Ones<'a> {}
 
-/// An  iterator producing the indices of the unset bit in a set.
+/// An  iterator producing the indices of the set bit in a set.
 ///
-/// This struct is created by the [`FixedBitSet::zeroes`] method.
+/// This struct is created by the [`FixedBitSet::ones`] method.
 pub struct Zeroes<'a> {
     bitset: usize,
     block_idx: usize,

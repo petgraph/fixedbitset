@@ -1,7 +1,7 @@
 fixedbitset
 ---
 
-A simple bitset container for Rust
+A simple fixed size bitset container for Rust.
 
 Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
@@ -10,6 +10,8 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
+-   0.5.2
+    - [#86](https://github.com/petgraph/fixedbitset/pull/86): Explicit SIMD vectorization for set operations by @james7132.
 -   0.5.1
     - [#102](https://github.com/petgraph/fixedbitset/pull/102): Added `contains_unchecked`, `insert_unchecked`, `put_unchecked`,
       `set_unchecked`, `toggle_unchecked`, `removed_unchecked`, `copy_bit_unchecked` unsafe variants of the safe functions, by @james7132
