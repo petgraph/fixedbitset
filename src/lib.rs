@@ -438,7 +438,7 @@ impl FixedBitSet {
         Masks::new(range, self.length)
             .map(|(block, mask)| {
                 // SAFETY: Masks cannot return a block index that is out of range.
-                let value = unsafe { *self.data.get_unchecked(block) };
+                let value = unsafe { *self.get_unchecked(block) };
                 (value & mask).count_ones() as usize
             })
             .sum()
@@ -453,7 +453,7 @@ impl FixedBitSet {
     pub fn set_range<T: IndexRange>(&mut self, range: T, enabled: bool) {
         for (block, mask) in Masks::new(range, self.length) {
             // SAFETY: Masks cannot return a block index that is out of range.
-            let block = unsafe { self.data.get_unchecked_mut(block) };
+            let block = unsafe { self.get_unchecked_mut(block) };
             if enabled {
                 *block |= mask;
             } else {
@@ -481,7 +481,7 @@ impl FixedBitSet {
     pub fn toggle_range<T: IndexRange>(&mut self, range: T) {
         for (block, mask) in Masks::new(range, self.length) {
             // SAFETY: Masks cannot return a block index that is out of range.
-            let block = unsafe { self.data.get_unchecked_mut(block) };
+            let block = unsafe { self.get_unchecked_mut(block) };
             *block ^= mask;
         }
     }
@@ -871,9 +871,9 @@ impl<'a> FusedIterator for Union<'a> {}
 
 struct Masks {
     first_block: usize,
-    first_mask: SimdBlock,
+    first_mask: usize,
     last_block: usize,
-    last_mask: SimdBlock,
+    last_mask: usize,
 }
 
 impl Masks {
@@ -889,32 +889,34 @@ impl Masks {
             length
         );
 
-        let (first_block, first_rem) = div_rem(start, SimdBlock::BITS);
-        let (last_block, last_rem) = div_rem(end, SimdBlock::BITS);
+        let (first_block, first_rem) = div_rem(start, BITS);
+        let (last_block, last_rem) = div_rem(end, BITS);
 
         Masks {
             first_block,
-            first_mask: SimdBlock::upper_mask(first_rem),
+            first_mask: usize::max_value() << first_rem,
             last_block,
-            last_mask: SimdBlock::lower_mask(last_rem),
+            last_mask: (usize::max_value() >> 1) >> (BITS - last_rem - 1),
+            // this is equivalent to `MAX >> (BITS - x)` with correct semantics when x == 0.
         }
     }
 }
 
 impl Iterator for Masks {
-    type Item = (usize, SimdBlock);
+    type Item = (usize, usize);
+
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self.first_block.cmp(&self.last_block) {
             Ordering::Less => {
                 let res = (self.first_block, self.first_mask);
                 self.first_block += 1;
-                self.first_mask = SimdBlock::ALL;
+                self.first_mask = !0;
                 Some(res)
             }
             Ordering::Equal => {
                 let mask = self.first_mask & self.last_mask;
-                let res = if mask.is_empty() {
+                let res = if mask == 0 {
                     None
                 } else {
                     Some((self.first_block, mask))

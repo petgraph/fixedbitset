@@ -37,32 +37,6 @@ mod wasm32;
 #[cfg(target_arch = "wasm32")]
 pub use self::wasm32::*;
 
-impl Block {
-    #[inline]
-    pub fn upper_mask(bits: usize) -> Self {
-        let mut array = [0_usize; Self::USIZE_COUNT];
-        let (idx, rem) = crate::div_rem(bits, crate::BITS);
-        array[idx] = usize::max_value() << rem;
-        for value in array.iter_mut().skip(idx + 1) {
-            *value = usize::MAX;
-        }
-        Self::from_usize_array(array)
-    }
-
-    #[inline]
-    pub fn lower_mask(bits: usize) -> Self {
-        !Self::upper_mask(bits)
-    }
-
-    #[inline]
-    pub fn count_ones(self) -> u32 {
-        self.into_usize_array()
-            .into_iter()
-            .map(usize::count_ones)
-            .sum()
-    }
-}
-
 impl Eq for Block {}
 
 impl PartialOrd for Block {
