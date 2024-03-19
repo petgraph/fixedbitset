@@ -1,6 +1,6 @@
 [package]
 name = "fixedbitset"
-version = "0.5.3"
+version = "0.5.4"
 authors = ["bluss"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
