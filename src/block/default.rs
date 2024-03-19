@@ -12,6 +12,16 @@ impl Block {
     pub const BITS: usize = core::mem::size_of::<Self>() * 8;
 
     #[inline]
+    pub fn into_usize_array(self) -> [usize; Self::USIZE_COUNT] {
+        [self.0]
+    }
+
+    #[inline]
+    pub const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
+        Self(array[0])
+    }
+
+    #[inline]
     pub const fn is_empty(self) -> bool {
         self.0 == Self::NONE.0
     }
