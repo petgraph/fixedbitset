@@ -11,6 +11,7 @@ mod default;
     not(target_arch = "wasm32"),
     not(target_feature = "sse2"),
     not(target_feature = "avx2"),
+    not(target_feature = "neon"),
 ))]
 pub use self::default::*;
 
@@ -31,6 +32,11 @@ pub use self::sse2::*;
 mod avx2;
 #[cfg(all(not(target_arch = "wasm32"), target_feature = "avx2",))]
 pub use self::avx2::*;
+
+#[cfg(all(not(target_arch = "wasm32"), target_feature = "neon",))]
+mod neon;
+#[cfg(all(not(target_arch = "wasm32"), target_feature = "neon",))]
+pub use self::neon::*;
 
 #[cfg(target_arch = "wasm32")]
 mod wasm32;
