@@ -18,22 +18,40 @@ jobs:
     strategy:
       matrix:
         rust: [1.56.0, stable, nightly]
-        features: ["+avx2", "+sse2", "-avx2,-sse2"]
+        features: ["+avx2", "+sse2"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}}"
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
       with:
+        target: x86_64-unknown-linux-gnu
         profile: minimal
         toolchain: ${{ matrix.rust }}
         override: true
-    - name: Tests
+    - name: Tests (x86_64)
       run: |
         cargo test -v --no-default-features --tests --lib &&
         cargo build --verbose --features "$FEATURES" &&
         cargo test --verbose --features "$FEATURES" &&
         cargo test --verbose --release --features "$FEATURES"
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [1.56.0, stable, nightly]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+        with:
+      with:
+        target: aarch64-unknown-linux-gnu
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        override: true
+    - name: Tests (aarch64)
+      run: |
+        run: cargo check --target aarch64-unknown-linux-gnu
 
   # Use clippy to lint for code smells
   clippy:
