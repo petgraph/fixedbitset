@@ -120,3 +120,20 @@ jobs:
           target: wasm32-unknown-unknown
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown
+
+  miri:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Check builds only on nightly
+        rust: [nightly]
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        profile: minimal
+        toolchain: ${{ matrix.rust }}
+        components: miri
+        override: true
+    - name: Run miri
+      run: cargo miri test
