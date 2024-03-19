@@ -10,7 +10,7 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
--   0.5.3
+-   0.5.4
     - [#112](https://github.com/petgraph/fixedbitset/pull/112): Fix undefined behavior in IntoOnes and setup testing with MIRI by @SkiFire13
 -   0.5.3 (yanked)
     - [#109](https://github.com/petgraph/fixedbitset/pull/109): Fix non-x86(_64) builds by @james7132
