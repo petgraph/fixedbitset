@@ -20,7 +20,7 @@ jobs:
         rust: [1.56.0, stable, nightly]
         features: ["+avx2", "+sse2", "-avx2,-sse2"]
     env:
-      RUSTFLAGS: "-C target-features={{matrix.features}}"
+      RUSTFLAGS: "-C target-feature={{matrix.features}}"
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
