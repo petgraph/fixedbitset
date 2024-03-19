@@ -1,3 +1,5 @@
+#![allow(clippy::undocumented_unsafe_blocks)]
+
 #[cfg(target_arch = "x86")]
 use core::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
@@ -20,12 +22,12 @@ impl Block {
     pub const BITS: usize = core::mem::size_of::<Self>() * 8;
 
     #[inline]
-    fn into_usize_array(self) -> [usize; Self::USIZE_COUNT] {
+    pub fn into_usize_array(self) -> [usize; Self::USIZE_COUNT] {
         unsafe { core::mem::transmute(self.0) }
     }
 
     #[inline]
-    const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
+    pub const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
         Self(unsafe { core::mem::transmute(array) })
     }
 

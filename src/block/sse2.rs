@@ -22,7 +22,7 @@ impl Block {
     }
 
     #[inline]
-    const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
+    pub const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
         Self(unsafe { core::mem::transmute(array) })
     }
 
