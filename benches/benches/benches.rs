@@ -139,6 +139,110 @@ fn grow_and_insert(c: &mut Criterion) {
     });
 }
 
+fn iter_union_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("iter_union_count/1m", |b| {
+        b.iter(|| black_box(fb_a.union(&fb_b).count()))
+    });
+}
+
+fn iter_intersect_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("iter_intersection_count/1m", |b| {
+        b.iter(|| black_box(fb_a.intersection(&fb_b).count()));
+    });
+}
+
+fn iter_difference_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("iter_difference_count/1m", |b| {
+        b.iter(|| black_box(fb_a.difference(&fb_b).count()));
+    });
+}
+
+fn iter_symmetric_difference_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("iter_symmetric_difference_count/1m", |b| {
+        b.iter(|| black_box(fb_a.symmetric_difference(&fb_b).count()));
+    });
+}
+
+fn union_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("union_count/1m", |b| {
+        b.iter(|| black_box(fb_a.union_count(&fb_b)))
+    });
+}
+
+fn intersect_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("intersection_count/1m", |b| {
+        b.iter(|| black_box(fb_a.intersection_count(&fb_b)));
+    });
+}
+
+fn difference_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("difference_count/1m", |b| {
+        b.iter(|| black_box(fb_a.difference_count(&fb_b)));
+    });
+}
+
+fn symmetric_difference_count(c: &mut Criterion) {
+    const N: usize = 1_000_000;
+    let mut fb_a = FixedBitSet::with_capacity(N);
+    let mut fb_b = FixedBitSet::with_capacity(N);
+
+    fb_a.insert_range(..);
+    fb_b.insert_range(..);
+
+    c.bench_function("symmetric_difference_count/1m", |b| {
+        b.iter(|| black_box(fb_a.symmetric_difference_count(&fb_b)));
+    });
+}
+
 fn union_with(c: &mut Criterion) {
     const N: usize = 1_000_000;
     let mut fb_a = FixedBitSet::with_capacity(N);
@@ -201,6 +305,14 @@ criterion_group!(
     iter_ones_sparse,
     iter_ones_all_ones,
     iter_ones_all_ones_rev,
+    iter_union_count,
+    iter_intersect_count,
+    iter_difference_count,
+    iter_symmetric_difference_count,
+    union_count,
+    intersect_count,
+    difference_count,
+    symmetric_difference_count,
     insert_range,
     insert,
     intersect_with,
