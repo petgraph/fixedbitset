@@ -26,6 +26,7 @@ jobs:
       with:
         target: x86_64-unknown-linux-gnu
         toolchain: ${{ matrix.rust }}
+        components: clippy
     - name: Tests (x86_64)
       run: |
         cargo clippy &&
@@ -49,6 +50,7 @@ jobs:
       with:
         target: aarch64-apple-darwin
         toolchain: ${{ matrix.rust }}
+        components: clippy
     - name: Tests (aarch64)
       run: |
         cargo clippy &&
