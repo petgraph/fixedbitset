@@ -126,7 +126,7 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - name: Run Tests
-        run: cargo check --target wasm32-unknown-unknown
+        run: cargo test --target wasm32-unknown-unknown
 
   miri:
     runs-on: ubuntu-latest
