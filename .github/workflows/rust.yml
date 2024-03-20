@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [1.56.0, stable, nightly]
+        rust: [1.59.0, stable, nightly]
         features: ["+avx2", "+sse2"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}}"
@@ -37,7 +37,7 @@ jobs:
     runs-on: macos-14
     strategy:
       matrix:
-        rust: [1.56.0, stable, nightly]
+        rust: [1.59.0, stable, nightly]
         features: ["+neon"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}}"
