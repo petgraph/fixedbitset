@@ -133,14 +133,8 @@ impl FixedBitSet {
     }
 
     #[inline]
-    fn simd_count_ones(simd_blocks: impl IntoIterator<Item = SimdBlock>) -> usize {
-        let mut count = 0;
-        for simd_block in simd_blocks.into_iter() {
-            for block in simd_block.into_usize_array() {
-                count += block.count_ones() as usize;
-            }
-        }
-        count
+    fn batch_count_ones(blocks: impl IntoIterator<Item = Block>) -> usize {
+        blocks.into_iter().map(|x| x.count_ones() as usize).sum()
     }
 
     /// Grows the internal size of the bitset before inserting a bit
@@ -445,13 +439,10 @@ impl FixedBitSet {
     /// **Panics** if the range extends past the end of the bitset.
     #[inline]
     pub fn count_ones<T: IndexRange>(&self, range: T) -> usize {
-        Masks::new(range, self.length)
-            .map(|(block, mask)| {
-                // SAFETY: Masks cannot return a block index that is out of range.
-                let value = unsafe { *self.get_unchecked(block) };
-                (value & mask).count_ones() as usize
-            })
-            .sum()
+        Self::batch_count_ones(Masks::new(range, self.length).map(|(block, mask)| {
+            // SAFETY: Masks cannot return a block index that is out of range.
+            unsafe { *self.get_unchecked(block) & mask }
+        }))
     }
 
     /// Sets every bit in the given range to the given state (`enabled`)
@@ -688,19 +679,15 @@ impl FixedBitSet {
     /// does not mutate in place or require separate allocations.
     #[inline]
     pub fn union_count(&self, other: &FixedBitSet) -> usize {
-        let count = Self::simd_count_ones(
-            self.data
-                .iter()
-                .zip(other.data.iter())
-                .map(|(x, y)| (*x | *y)),
-        );
-        if other.data.len() > self.data.len() {
-            count + Self::simd_count_ones(other.data[self.data.len()..].iter().copied())
-        } else if self.data.len() > other.data.len() {
-            count + Self::simd_count_ones(self.data[other.data.len()..].iter().copied())
-        } else {
-            count
+        let me = self.as_slice();
+        let other = other.as_slice();
+        let mut count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x | *y)));
+        if other.len() > me.len() {
+            count += Self::batch_count_ones(other[me.len()..].iter().copied());
+        } else if self.len() > other.len() {
+            count += Self::batch_count_ones(me[other.len()..].iter().copied());
         }
+        count
     }
 
     /// Computes how many bits would be set in the intersection between two bitsets.
@@ -710,10 +697,10 @@ impl FixedBitSet {
     /// does not mutate in place or require separate allocations.
     #[inline]
     pub fn intersection_count(&self, other: &FixedBitSet) -> usize {
-        Self::simd_count_ones(
-            self.data
+        Self::batch_count_ones(
+            self.as_slice()
                 .iter()
-                .zip(other.data.iter())
+                .zip(other.as_slice())
                 .map(|(x, y)| (*x & *y)),
         )
     }
@@ -725,10 +712,10 @@ impl FixedBitSet {
     /// does not mutate in place or require separate allocations.
     #[inline]
     pub fn difference_count(&self, other: &FixedBitSet) -> usize {
-        Self::simd_count_ones(
-            self.data
+        Self::batch_count_ones(
+            self.as_slice()
                 .iter()
-                .zip(other.data.iter())
+                .zip(other.as_slice().iter())
                 .map(|(x, y)| (*x & !*y)),
         )
     }
@@ -740,16 +727,13 @@ impl FixedBitSet {
     /// does not mutate in place or require separate allocations.
     #[inline]
     pub fn symmetric_difference_count(&self, other: &FixedBitSet) -> usize {
-        let count = Self::simd_count_ones(
-            self.data
-                .iter()
-                .zip(other.data.iter())
-                .map(|(x, y)| (*x ^ *y)),
-        );
-        if other.data.len() > self.data.len() {
-            count + Self::simd_count_ones(other.data[self.data.len()..].iter().copied())
-        } else if self.data.len() > other.data.len() {
-            count + Self::simd_count_ones(self.data[other.data.len()..].iter().copied())
+        let me = self.as_slice();
+        let other = other.as_slice();
+        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x ^ *y)));
+        if other.len() > me.len() {
+            count + Self::batch_count_ones(other[me.len()..].iter().copied())
+        } else if me.len() > other.len() {
+            count + Self::batch_count_ones(me[other.len()..].iter().copied())
         } else {
             count
         }
