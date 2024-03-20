@@ -260,9 +260,9 @@ impl FixedBitSet {
     }
 
     /// Finds the lowest set bit in the bitset.
-    /// 
+    ///
     /// Returns `None` if there aren't any set bits.
-    /// 
+    ///
     /// ```
     /// # use fixedbitset::FixedBitSet;
     /// let mut bitset = FixedBitSet::with_capacity(10);
@@ -275,7 +275,8 @@ impl FixedBitSet {
     /// ```
     #[inline]
     pub fn minimum(&self) -> Option<usize> {
-        let (block_idx, block) = self.as_simd_slice()
+        let (block_idx, block) = self
+            .as_simd_slice()
             .iter()
             .enumerate()
             .find(|&(_, block)| !block.is_empty())?;
@@ -293,9 +294,9 @@ impl FixedBitSet {
     }
 
     /// Finds the highest set bit in the bitset.
-    /// 
+    ///
     /// Returns `None` if there aren't any set bits.
-    /// 
+    ///
     /// ```
     /// # use fixedbitset::FixedBitSet;
     /// let mut bitset = FixedBitSet::with_capacity(10);
@@ -308,7 +309,8 @@ impl FixedBitSet {
     /// ```
     #[inline]
     pub fn maximum(&self) -> Option<usize> {
-        let (block_idx, block) = self.as_simd_slice()
+        let (block_idx, block) = self
+            .as_simd_slice()
             .iter()
             .rev()
             .enumerate()
@@ -1892,7 +1894,6 @@ mod tests {
         fb.clear();
         assert_eq!(fb.maximum(), None);
     }
-
 
     /* Helper for testing double ended iterator */
     #[cfg(test)]
