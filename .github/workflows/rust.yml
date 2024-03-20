@@ -19,7 +19,7 @@ jobs:
         rust: [1.56.0, stable, nightly]
         features: ["+avx2", "+sse2"]
     env:
-      RUSTFLAGS: "-C target-feature=${{matrix.features}}"
+      RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
@@ -28,7 +28,7 @@ jobs:
         toolchain: ${{ matrix.rust }}
     - name: Tests (x86_64)
       run: |
-        cargo clippy -D warnings &&
+        cargo clippy &&
         cargo test -v --no-default-features --tests --lib &&
         cargo build --verbose --features "$FEATURES" &&
         cargo test --verbose --features "$FEATURES" &&
@@ -42,7 +42,7 @@ jobs:
         rust: [1.56.0, stable, nightly]
         features: ["+neon", "-neon"]
     env:
-      RUSTFLAGS: "-C target-feature=${{matrix.features}}"
+      RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
@@ -51,7 +51,7 @@ jobs:
         toolchain: ${{ matrix.rust }}
     - name: Tests (aarch64)
       run: |
-        cargo clippy -D warnings &&
+        cargo clippy &&
         cargo test -v --no-default-features --tests --lib &&
         cargo build --verbose --features "$FEATURES" &&
         cargo test --verbose --features "$FEATURES" &&
