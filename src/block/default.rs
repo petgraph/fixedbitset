@@ -1,4 +1,3 @@
-use core::iter::Iterator;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -8,6 +7,7 @@ pub struct Block(usize);
 impl Block {
     pub const USIZE_COUNT: usize = 1;
     pub const NONE: Self = Block(0);
+    #[allow(dead_code)]
     pub const ALL: Self = Block(!0);
     pub const BITS: usize = core::mem::size_of::<Self>() * 8;
 
@@ -17,6 +17,7 @@ impl Block {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
         Self(array[0])
     }

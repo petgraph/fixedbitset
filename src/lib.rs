@@ -681,13 +681,12 @@ impl FixedBitSet {
     pub fn union_count(&self, other: &FixedBitSet) -> usize {
         let me = self.as_slice();
         let other = other.as_slice();
-        let mut count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x | *y)));
-        if other.len() > me.len() {
-            count += Self::batch_count_ones(other[me.len()..].iter().copied());
-        } else if self.len() > other.len() {
-            count += Self::batch_count_ones(me[other.len()..].iter().copied());
+        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x | *y)));
+        match other.len().cmp(&me.len()) {
+            Ordering::Greater => count + Self::batch_count_ones(other[me.len()..].iter().copied()),
+            Ordering::Less => count + Self::batch_count_ones(me[other.len()..].iter().copied()),
+            Ordering::Equal => count,
         }
-        count
     }
 
     /// Computes how many bits would be set in the intersection between two bitsets.
@@ -730,12 +729,10 @@ impl FixedBitSet {
         let me = self.as_slice();
         let other = other.as_slice();
         let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x ^ *y)));
-        if other.len() > me.len() {
-            count + Self::batch_count_ones(other[me.len()..].iter().copied())
-        } else if me.len() > other.len() {
-            count + Self::batch_count_ones(me[other.len()..].iter().copied())
-        } else {
-            count
+        match other.len().cmp(&me.len()) {
+            Ordering::Greater => count + Self::batch_count_ones(other[me.len()..].iter().copied()),
+            Ordering::Less => count + Self::batch_count_ones(me[other.len()..].iter().copied()),
+            Ordering::Equal => count,
         }
     }
 
@@ -805,14 +802,8 @@ impl<'a> Iterator for Difference<'a> {
     type Item = usize;
 
     #[inline]
-    #[allow(clippy::manual_find)]
     fn next(&mut self) -> Option<Self::Item> {
-        for nxt in self.iter.by_ref() {
-            if !self.other.contains(nxt) {
-                return Some(nxt);
-            }
-        }
-        None
+        self.iter.by_ref().find(|&nxt| !self.other.contains(nxt))
     }
 
     #[inline]
@@ -875,7 +866,6 @@ impl<'a> Iterator for Intersection<'a> {
     type Item = usize; // the bit position of the '1'
 
     #[inline]
-    #[allow(clippy::manual_find)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.by_ref().find(|&nxt| self.other.contains(nxt))
     }
