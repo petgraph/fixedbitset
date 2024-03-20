@@ -676,7 +676,7 @@ impl FixedBitSet {
         for (block, mask) in Masks::new(range, self.length) {
             // SAFETY: Masks cannot return a block index that is out of range.
             let block = unsafe { self.get_unchecked(block) };
-            if block & mask != mask {
+            if block & mask != 0 {
                 return true;
             }
         }
@@ -2107,6 +2107,51 @@ mod tests {
         assert!(!fb.contains(97));
         assert!(!fb.contains(127));
         assert!(!fb.contains(128));
+    }
+
+    #[test]
+    fn contains_all_in_range() {
+        let mut fb = FixedBitSet::with_capacity(48);
+        fb.insert_range(..);
+
+        fb.remove_range(..32);
+        fb.remove_range(37..);
+
+        assert!(fb.contains_all_in_range(32..37));
+        assert!(fb.contains_all_in_range(32..35));
+        assert!(!fb.contains_all_in_range(32..));
+        assert!(!fb.contains_all_in_range(..37));
+        assert!(!fb.contains_all_in_range(..));
+    }
+
+    #[test]
+    fn contains_any_in_range() {
+        let mut fb = FixedBitSet::with_capacity(48);
+        fb.insert_range(..);
+
+        fb.remove_range(..32);
+        fb.remove_range(37..);
+
+        assert!(!fb.contains_any_in_range(..32));
+        assert!(fb.contains_any_in_range(32..37));
+        assert!(fb.contains_any_in_range(32..35));
+        assert!(fb.contains_any_in_range(32..));
+        assert!(fb.contains_any_in_range(..37));
+        assert!(!fb.contains_any_in_range(37..));
+        assert!(fb.contains_any_in_range(..));
+    }
+
+    #[test]
+    fn remove_range() {
+        let mut fb = FixedBitSet::with_capacity(48);
+        fb.insert_range(..);
+
+        fb.remove_range(..32);
+        fb.remove_range(37..);
+
+        for i in 0..48 {
+            assert_eq!(fb.contains(i), 32 <= i && i < 37);
+        }
     }
 
     #[test]
