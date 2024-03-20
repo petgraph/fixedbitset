@@ -132,6 +132,17 @@ impl FixedBitSet {
         blocks
     }
 
+    #[inline]
+    fn simd_count_ones(simd_blocks: impl IntoIterator<Item = SimdBlock>) -> usize {
+        let mut count = 0;
+        for simd_block in simd_blocks.into_iter() {
+            for block in simd_block.into_usize_array() {
+                count += block.count_ones() as usize;
+            }
+        }
+        count
+    }
+
     /// Grows the internal size of the bitset before inserting a bit
     ///
     /// Unlike `insert`, this cannot panic, but may allocate if the bit is outside of the existing buffer's range.
@@ -428,6 +439,7 @@ impl FixedBitSet {
 
     /// Count the number of set bits in the given bit range.
     ///
+    /// This function is potentially much faster than using `ones(other).count()`.
     /// Use `..` to count the whole content of the bitset.
     ///
     /// **Panics** if the range extends past the end of the bitset.
@@ -666,6 +678,80 @@ impl FixedBitSet {
         }
         for (x, y) in self.data.iter_mut().zip(other.data.iter()) {
             *x ^= *y;
+        }
+    }
+
+    /// Computes how many bits would be set in the union between two bitsets.
+    ///
+    /// This is potentially much faster than using `union(other).count()`. Unlike
+    /// other methods like using [`union_with`] followed by [`count_ones`], this
+    /// does not mutate in place or require separate allocations.
+    #[inline]
+    pub fn union_count(&self, other: &FixedBitSet) -> usize {
+        let count = Self::simd_count_ones(
+            self.data
+                .iter()
+                .zip(other.data.iter())
+                .map(|(x, y)| (*x | *y)),
+        );
+        if other.data.len() > self.data.len() {
+            count + Self::simd_count_ones(other.data[self.data.len()..].iter().copied())
+        } else if self.data.len() > other.data.len() {
+            count + Self::simd_count_ones(self.data[other.data.len()..].iter().copied())
+        } else {
+            count
+        }
+    }
+
+    /// Computes how many bits would be set in the intersection between two bitsets.
+    ///
+    /// This is potentially much faster than using `intersection(other).count()`. Unlike
+    /// other methods like using [`intersect_with`] followed by [`count_ones`], this
+    /// does not mutate in place or require separate allocations.
+    #[inline]
+    pub fn intersection_count(&self, other: &FixedBitSet) -> usize {
+        Self::simd_count_ones(
+            self.data
+                .iter()
+                .zip(other.data.iter())
+                .map(|(x, y)| (*x & *y)),
+        )
+    }
+
+    /// Computes how many bits would be set in the difference between two bitsets.
+    ///
+    /// This is potentially much faster than using `difference(other).count()`. Unlike
+    /// other methods like using [`difference_with`] followed by [`count_ones`], this
+    /// does not mutate in place or require separate allocations.
+    #[inline]
+    pub fn difference_count(&self, other: &FixedBitSet) -> usize {
+        Self::simd_count_ones(
+            self.data
+                .iter()
+                .zip(other.data.iter())
+                .map(|(x, y)| (*x & !*y)),
+        )
+    }
+
+    /// Computes how many bits would be set in the symmetric difference between two bitsets.
+    ///
+    /// This is potentially much faster than using `symmetric_difference(other).count()`. Unlike
+    /// other methods like using [`symmetric_difference_with`] followed by [`count_ones`], this
+    /// does not mutate in place or require separate allocations.
+    #[inline]
+    pub fn symmetric_difference_count(&self, other: &FixedBitSet) -> usize {
+        let count = Self::simd_count_ones(
+            self.data
+                .iter()
+                .zip(other.data.iter())
+                .map(|(x, y)| (*x ^ *y)),
+        );
+        if other.data.len() > self.data.len() {
+            count + Self::simd_count_ones(other.data[self.data.len()..].iter().copied())
+        } else if self.data.len() > other.data.len() {
+            count + Self::simd_count_ones(self.data[other.data.len()..].iter().copied())
+        } else {
+            count
         }
     }
 
@@ -1830,7 +1916,8 @@ mod tests {
         let mut b = FixedBitSet::with_capacity(len);
         a.set_range(..a_end, true);
         b.set_range(b_start.., true);
-
+        let count = a.intersection_count(&b);
+        let iterator_count = a.intersection(&b).count();
         let mut ab = a.intersection(&b).collect::<FixedBitSet>();
 
         for i in 0..b_start {
@@ -1850,6 +1937,15 @@ mod tests {
             ab, a,
             "intersection and intersect_with produce the same results"
         );
+        assert_eq!(
+            ab.count_ones(..),
+            count,
+            "intersection and intersection_count produce the same results"
+        );
+        assert_eq!(
+            count, iterator_count,
+            "intersection and intersection_count produce the same results"
+        );
     }
 
     #[test]
@@ -1862,6 +1958,8 @@ mod tests {
         let mut b = FixedBitSet::with_capacity(b_len);
         a.set_range(a_start.., true);
         b.set_range(..b_end, true);
+        let count = a.union_count(&b);
+        let iterator_count = a.union(&b).count();
         let ab = a.union(&b).collect::<FixedBitSet>();
         for i in a_start..a_len {
             assert!(ab.contains(i));
@@ -1875,6 +1973,15 @@ mod tests {
 
         a.union_with(&b);
         assert_eq!(ab, a, "union and union_with produce the same results");
+        assert_eq!(
+            count,
+            ab.count_ones(..),
+            "union and union_count produce the same results"
+        );
+        assert_eq!(
+            count, iterator_count,
+            "union and union_count produce the same results"
+        );
     }
 
     #[test]
@@ -1888,6 +1995,8 @@ mod tests {
         let mut b = FixedBitSet::with_capacity(b_len);
         a.set_range(a_start..a_end, true);
         b.set_range(b_start..b_len, true);
+        let count = a.difference_count(&b);
+        let iterator_count = a.difference(&b).count();
         let mut a_diff_b = a.difference(&b).collect::<FixedBitSet>();
         for i in a_start..b_start {
             assert!(a_diff_b.contains(i));
@@ -1903,6 +2012,15 @@ mod tests {
             a_diff_b, a,
             "difference and difference_with produce the same results"
         );
+        assert_eq!(
+            a_diff_b.count_ones(..),
+            count,
+            "difference and difference_count produce the same results"
+        );
+        assert_eq!(
+            count, iterator_count,
+            "intersection and intersection_count produce the same results"
+        );
     }
 
     #[test]
@@ -1916,6 +2034,8 @@ mod tests {
         let mut b = FixedBitSet::with_capacity(b_len);
         a.set_range(a_start..a_end, true);
         b.set_range(b_start..b_len, true);
+        let count = a.symmetric_difference_count(&b);
+        let iterator_count = a.symmetric_difference(&b).count();
         let a_sym_diff_b = a.symmetric_difference(&b).collect::<FixedBitSet>();
         for i in 0..a_start {
             assert!(!a_sym_diff_b.contains(i));
@@ -1934,6 +2054,15 @@ mod tests {
         assert_eq!(
             a_sym_diff_b, a,
             "symmetric_difference and _with produce the same results"
+        );
+        assert_eq!(
+            a_sym_diff_b.count_ones(..),
+            count,
+            "symmetric_difference and _count produce the same results"
+        );
+        assert_eq!(
+            count, iterator_count,
+            "symmetric_difference and _count produce the same results"
         );
     }
 
