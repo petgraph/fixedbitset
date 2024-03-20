@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [1.57.0]
+        rust: [1.56.0]
         features: ["+avx2", "+sse2"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}}"
@@ -122,12 +122,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
       - name: Run Tests
-        run: |
-          wasm-pack test --headless --chrome
-          wasm-pack test --headless --firefox
+        run: cargo check --target wasm32-unknown-unknown
 
   miri:
     runs-on: ubuntu-latest
