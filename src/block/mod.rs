@@ -1,3 +1,5 @@
+#![allow(clippy::undocumented_unsafe_blocks)]
+
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
 
