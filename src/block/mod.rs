@@ -5,6 +5,7 @@ use core::hash::{Hash, Hasher};
     not(target_arch = "wasm32"),
     not(target_feature = "sse2"),
     not(target_feature = "avx2"),
+    not(target_feature = "neon"),
 ))]
 mod default;
 #[cfg(all(
