@@ -33,7 +33,7 @@ jobs:
         cargo test --verbose --features "$FEATURES" &&
         cargo test --verbose --release --features "$FEATURES"
 
-  build_aarch64:
+  build_aarch64_ubuntu:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -46,6 +46,27 @@ jobs:
         toolchain: ${{ matrix.rust }}
     - name: Tests (aarch64)
       run: cargo check --target aarch64-unknown-linux-gnu
+
+  build_aarch64_darwin:
+    runs-on: macos-14
+    strategy:
+      matrix:
+        rust: [1.56.0, stable, nightly]
+        features: ["+neon"]
+    env:
+      RUSTFLAGS: "-C target-feature=${{matrix.features}}"
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        target: aarch64-apple-darwin
+        toolchain: ${{ matrix.rust }}
+    - name: Tests (arm64)
+      run: |
+        cargo test -v --no-default-features --tests --lib &&
+        cargo build --verbose --features "$FEATURES" &&
+        cargo test --verbose --features "$FEATURES" &&
+        cargo test --verbose --release --features "$FEATURES"
 
   # Use clippy to lint for code smells
   clippy:
