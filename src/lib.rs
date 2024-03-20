@@ -128,20 +128,21 @@ impl FixedBitSet {
     /// Grow capacity to **bits**, all new bits initialized to zero
     #[inline]
     pub fn grow(&mut self, bits: usize) {
+        if bits <= self.length {
+            return;
+        }
+        // SAFETY: The data pointer and capacity were created from a Vec initially. The block
+        // len is identical to that of the original.
+        let mut data = unsafe {
+            Vec::from_raw_parts(self.data.as_ptr(), self.simd_block_len(), self.capacity)
+        };
         let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
-        if bits > self.length {
-            // SAFETY: The data pointer and capacity were created from a Vec initially. The block
-            // len is identical to that of the original.
-            let mut data = unsafe {
-                Vec::from_raw_parts(self.data.as_ptr(), self.simd_block_len(), self.capacity)
-            };
-            data.resize(blocks, SimdBlock::NONE);
-            let (data, capacity, _) = vec_into_parts(data);
-            self.data = data;
-            self.capacity = capacity;
-            self.length = bits;
-        }
+        data.resize(blocks, SimdBlock::NONE);
+        let (data, capacity, _) = vec_into_parts(data);
+        self.data = data;
+        self.capacity = capacity;
+        self.length = bits;
     }
 
     #[inline]
@@ -256,6 +257,91 @@ impl FixedBitSet {
     #[inline]
     pub fn is_clear(&self) -> bool {
         self.as_simd_slice().iter().all(|block| block.is_empty())
+    }
+
+    /// Finds the lowest set bit in the bitset.
+    /// 
+    /// Returns `None` if there aren't any set bits.
+    /// 
+    /// ```
+    /// # use fixedbitset::FixedBitSet;
+    /// let mut bitset = FixedBitSet::with_capacity(10);
+    /// assert_eq!(bitset.minimum(), None);
+    ///
+    /// bitset.insert(2);
+    /// assert_eq!(bitset.minimum(), Some(2));
+    /// bitset.insert(8);
+    /// assert_eq!(bitset.minimum(), Some(2));
+    /// ```
+    #[inline]
+    pub fn minimum(&self) -> Option<usize> {
+        let (block_idx, block) = self.as_simd_slice()
+            .iter()
+            .enumerate()
+            .find(|&(_, block)| !block.is_empty())?;
+        let mut inner = 0;
+        let mut trailing = 0;
+        for subblock in block.into_usize_array() {
+            if subblock != 0 {
+                trailing = subblock.trailing_zeros() as usize;
+                break;
+            } else {
+                inner += BITS;
+            }
+        }
+        Some(block_idx * SimdBlock::BITS + inner + trailing)
+    }
+
+    /// Finds the highest set bit in the bitset.
+    /// 
+    /// Returns `None` if there aren't any set bits.
+    /// 
+    /// ```
+    /// # use fixedbitset::FixedBitSet;
+    /// let mut bitset = FixedBitSet::with_capacity(10);
+    /// assert_eq!(bitset.maximum(), None);
+    ///
+    /// bitset.insert(8);
+    /// assert_eq!(bitset.maximum(), Some(8));
+    /// bitset.insert(2);
+    /// assert_eq!(bitset.maximum(), Some(8));
+    /// ```
+    #[inline]
+    pub fn maximum(&self) -> Option<usize> {
+        let (block_idx, block) = self.as_simd_slice()
+            .iter()
+            .rev()
+            .enumerate()
+            .find(|&(_, block)| !block.is_empty())?;
+        let mut inner = 0;
+        let mut leading = 0;
+        for subblock in block.into_usize_array().iter().rev() {
+            if *subblock != 0 {
+                leading = subblock.leading_zeros() as usize;
+                break;
+            } else {
+                inner += BITS;
+            }
+        }
+        let max = self.simd_block_len() * SimdBlock::BITS;
+        Some(max - block_idx * SimdBlock::BITS - inner - leading - 1)
+    }
+
+    /// `true` if all bits in the [`FixedBitSet`] are set.
+    ///
+    /// ```
+    /// # use fixedbitset::FixedBitSet;
+    /// let mut bitset = FixedBitSet::with_capacity(10);
+    /// assert!(!bitset.is_full());
+    ///
+    /// bitset.insert_range(..);
+    /// assert!(bitset.is_full());
+    /// ```
+    ///
+    /// This is equivalent to [`bitset.count_ones(..) == bitset.len()`](FixedBitSet::count_ones).
+    #[inline]
+    pub fn is_full(&self) -> bool {
+        self.contains_all_in_range(..)
     }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -495,6 +581,20 @@ impl FixedBitSet {
         }))
     }
 
+    /// Count the number of unset bits in the given bit range.
+    ///
+    /// This function is potentially much faster than using `zeroes(other).count()`.
+    /// Use `..` to count the whole content of the bitset.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
+    #[inline]
+    pub fn count_zeroes<T: IndexRange>(&self, range: T) -> usize {
+        Self::batch_count_ones(Masks::new(range, self.length).map(|(block, mask)| {
+            // SAFETY: Masks cannot return a block index that is out of range.
+            unsafe { !*self.get_unchecked(block) & mask }
+        }))
+    }
+
     /// Sets every bit in the given range to the given state (`enabled`)
     ///
     /// Use `..` to set the whole bitset.
@@ -502,14 +602,10 @@ impl FixedBitSet {
     /// **Panics** if the range extends past the end of the bitset.
     #[inline]
     pub fn set_range<T: IndexRange>(&mut self, range: T, enabled: bool) {
-        for (block, mask) in Masks::new(range, self.length) {
-            // SAFETY: Masks cannot return a block index that is out of range.
-            let block = unsafe { self.get_unchecked_mut(block) };
-            if enabled {
-                *block |= mask;
-            } else {
-                *block &= !mask;
-            }
+        if enabled {
+            self.insert_range(range);
+        } else {
+            self.remove_range(range);
         }
     }
 
@@ -520,7 +616,25 @@ impl FixedBitSet {
     /// **Panics** if the range extends past the end of the bitset.
     #[inline]
     pub fn insert_range<T: IndexRange>(&mut self, range: T) {
-        self.set_range(range, true);
+        for (block, mask) in Masks::new(range, self.length) {
+            // SAFETY: Masks cannot return a block index that is out of range.
+            let block = unsafe { self.get_unchecked_mut(block) };
+            *block |= mask;
+        }
+    }
+
+    /// Disables every bit in the given range.
+    ///
+    /// Use `..` to make the whole bitset ones.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
+    #[inline]
+    pub fn remove_range<T: IndexRange>(&mut self, range: T) {
+        for (block, mask) in Masks::new(range, self.length) {
+            // SAFETY: Masks cannot return a block index that is out of range.
+            let block = unsafe { self.get_unchecked_mut(block) };
+            *block &= !mask;
+        }
     }
 
     /// Toggles (inverts) every bit in the given range.
@@ -535,6 +649,36 @@ impl FixedBitSet {
             let block = unsafe { self.get_unchecked_mut(block) };
             *block ^= mask;
         }
+    }
+
+    /// Checks if the bitset contains every bit in the given range.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
+    #[inline]
+    pub fn contains_all_in_range<T: IndexRange>(&self, range: T) -> bool {
+        for (block, mask) in Masks::new(range, self.length) {
+            // SAFETY: Masks cannot return a block index that is out of range.
+            let block = unsafe { self.get_unchecked(block) };
+            if block & mask != mask {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Checks if the bitset contains at least one set bit in the given range.
+    ///
+    /// **Panics** if the range extends past the end of the bitset.
+    #[inline]
+    pub fn contains_any_in_range<T: IndexRange>(&self, range: T) -> bool {
+        for (block, mask) in Masks::new(range, self.length) {
+            // SAFETY: Masks cannot return a block index that is out of range.
+            let block = unsafe { self.get_unchecked(block) };
+            if block & mask != mask {
+                return true;
+            }
+        }
+        false
     }
 
     /// View the bitset as a slice of `Block` blocks
@@ -1664,6 +1808,92 @@ mod tests {
         assert_eq!(fb.count_ones(8..), 8);
     }
 
+    #[test]
+    fn count_zeroes() {
+        let mut fb = FixedBitSet::with_capacity(100);
+        fb.set(11, true);
+        fb.set(12, true);
+        fb.set(7, true);
+        fb.set(35, true);
+        fb.set(40, true);
+        fb.set(77, true);
+        fb.set(95, true);
+        fb.set(50, true);
+        fb.set(99, true);
+        assert_eq!(fb.count_zeroes(..7), 7);
+        assert_eq!(fb.count_zeroes(..8), 7);
+        assert_eq!(fb.count_zeroes(..11), 10);
+        assert_eq!(fb.count_zeroes(..12), 10);
+        assert_eq!(fb.count_zeroes(..13), 10);
+        assert_eq!(fb.count_zeroes(..35), 32);
+        assert_eq!(fb.count_zeroes(..36), 32);
+        assert_eq!(fb.count_zeroes(..40), 36);
+        assert_eq!(fb.count_zeroes(..41), 36);
+        assert_eq!(fb.count_zeroes(50..), 46);
+        assert_eq!(fb.count_zeroes(70..95), 24);
+        assert_eq!(fb.count_zeroes(70..96), 24);
+        assert_eq!(fb.count_zeroes(70..99), 27);
+        assert_eq!(fb.count_zeroes(..), 91);
+        assert_eq!(fb.count_zeroes(0..100), 91);
+        assert_eq!(fb.count_zeroes(0..0), 0);
+        assert_eq!(fb.count_zeroes(100..100), 0);
+        assert_eq!(fb.count_zeroes(7..), 84);
+        assert_eq!(fb.count_zeroes(8..), 84);
+    }
+
+    #[test]
+    fn minimum() {
+        let mut fb = FixedBitSet::with_capacity(100);
+        assert_eq!(fb.minimum(), None);
+        fb.set(95, true);
+        assert_eq!(fb.minimum(), Some(95));
+        fb.set(77, true);
+        assert_eq!(fb.minimum(), Some(77));
+        fb.set(12, true);
+        assert_eq!(fb.minimum(), Some(12));
+        fb.set(40, true);
+        assert_eq!(fb.minimum(), Some(12));
+        fb.set(35, true);
+        assert_eq!(fb.minimum(), Some(12));
+        fb.set(11, true);
+        assert_eq!(fb.minimum(), Some(11));
+        fb.set(7, true);
+        assert_eq!(fb.minimum(), Some(7));
+        fb.set(50, true);
+        assert_eq!(fb.minimum(), Some(7));
+        fb.set(99, true);
+        assert_eq!(fb.minimum(), Some(7));
+        fb.clear();
+        assert_eq!(fb.minimum(), None);
+    }
+
+    #[test]
+    fn maximum() {
+        let mut fb = FixedBitSet::with_capacity(100);
+        assert_eq!(fb.maximum(), None);
+        fb.set(11, true);
+        assert_eq!(fb.maximum(), Some(11));
+        fb.set(12, true);
+        assert_eq!(fb.maximum(), Some(12));
+        fb.set(7, true);
+        assert_eq!(fb.maximum(), Some(12));
+        fb.set(40, true);
+        assert_eq!(fb.maximum(), Some(40));
+        fb.set(35, true);
+        assert_eq!(fb.maximum(), Some(40));
+        fb.set(95, true);
+        assert_eq!(fb.maximum(), Some(95));
+        fb.set(50, true);
+        assert_eq!(fb.maximum(), Some(95));
+        fb.set(77, true);
+        assert_eq!(fb.maximum(), Some(95));
+        fb.set(99, true);
+        assert_eq!(fb.maximum(), Some(99));
+        fb.clear();
+        assert_eq!(fb.maximum(), None);
+    }
+
+
     /* Helper for testing double ended iterator */
     #[cfg(test)]
     struct Alternating<I> {
@@ -2547,24 +2777,47 @@ mod tests {
         let serialized = serde_json::to_string(&fb).unwrap();
         assert_eq!(r#"{"length":10,"data":[76,1,0,0,0,0,0,0]}"#, serialized);
     }
-}
 
-#[test]
-fn test_is_clear() {
-    let mut fb = FixedBitSet::with_capacity(0);
-    assert!(fb.is_clear());
+    #[test]
+    fn test_is_clear() {
+        let mut fb = FixedBitSet::with_capacity(0);
+        assert!(fb.is_clear());
 
-    fb.grow(1);
-    assert!(fb.is_clear());
+        fb.grow(1);
+        assert!(fb.is_clear());
 
-    fb.put(0);
-    assert!(!fb.is_clear());
+        fb.put(0);
+        assert!(!fb.is_clear());
 
-    fb.grow(42);
-    fb.clear();
-    assert!(fb.is_clear());
+        fb.grow(42);
+        fb.clear();
+        assert!(fb.is_clear());
 
-    fb.put(17);
-    fb.put(19);
-    assert!(!fb.is_clear());
+        fb.put(17);
+        fb.put(19);
+        assert!(!fb.is_clear());
+    }
+
+    #[test]
+    fn test_is_full() {
+        let mut fb = FixedBitSet::with_capacity(0);
+        assert!(fb.is_full());
+
+        fb.grow(1);
+        assert!(!fb.is_full());
+
+        fb.put(0);
+        assert!(fb.is_full());
+
+        fb.grow(42);
+        fb.clear();
+        assert!(!fb.is_full());
+
+        fb.put(17);
+        fb.put(19);
+        assert!(!fb.is_full());
+
+        fb.insert_range(..);
+        assert!(fb.is_full());
+    }
 }
