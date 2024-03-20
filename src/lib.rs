@@ -91,12 +91,16 @@ impl FixedBitSet {
     pub fn with_capacity(bits: usize) -> Self {
         let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
-        let data = vec![SimdBlock::NONE; blocks];
+        Self::from_blocks_and_len(vec![SimdBlock::NONE; blocks], bits)
+    }
+
+    #[inline]
+    fn from_blocks_and_len(data: Vec<SimdBlock>, length: usize) -> Self {
         let (data, capacity, _) = vec_into_parts(data);
         FixedBitSet {
             data,
             capacity,
-            length: bits,
+            length,
         }
     }
 
@@ -1243,13 +1247,7 @@ impl<'a> FusedIterator for Zeroes<'a> {}
 impl Clone for FixedBitSet {
     #[inline]
     fn clone(&self) -> Self {
-        let data = Vec::from(self.as_simd_slice());
-        let (data, capacity, _) = vec_into_parts(data);
-        FixedBitSet {
-            data,
-            capacity,
-            length: self.length,
-        }
+        Self::from_blocks_and_len(Vec::from(self.as_simd_slice()), self.length)
     }
 }
 
@@ -1421,12 +1419,7 @@ impl<'a> BitAnd for &'a FixedBitSet {
             *data &= *block;
         }
         let len = core::cmp::min(self.len(), other.len());
-        let (data, capacity, _) = vec_into_parts(data);
-        FixedBitSet {
-            data,
-            capacity,
-            length: len,
-        }
+        FixedBitSet::from_blocks_and_len(data, len)
     }
 }
 
@@ -1457,12 +1450,7 @@ impl<'a> BitOr for &'a FixedBitSet {
             *data |= *block;
         }
         let len = core::cmp::max(self.len(), other.len());
-        let (data, capacity, _) = vec_into_parts(data);
-        FixedBitSet {
-            data,
-            capacity,
-            length: len,
-        }
+        FixedBitSet::from_blocks_and_len(data, len)
     }
 }
 
@@ -1493,12 +1481,7 @@ impl<'a> BitXor for &'a FixedBitSet {
             *data ^= *block;
         }
         let len = core::cmp::max(self.len(), other.len());
-        let (data, capacity, _) = vec_into_parts(data);
-        FixedBitSet {
-            data,
-            capacity,
-            length: len,
-        }
+        FixedBitSet::from_blocks_and_len(data, len)
     }
 }
 
