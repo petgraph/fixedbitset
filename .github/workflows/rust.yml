@@ -11,7 +11,7 @@ env:
   CARGO_INCREMENTAL: 0
 
 jobs:
-  # Ensure the crate builds
+  # Ensure the crate builds on x86
   build_x86_64:
     runs-on: ubuntu-latest
     strategy:
@@ -28,42 +28,34 @@ jobs:
         toolchain: ${{ matrix.rust }}
     - name: Tests (x86_64)
       run: |
+        cargo clippy -D warnings &&
         cargo test -v --no-default-features --tests --lib &&
         cargo build --verbose --features "$FEATURES" &&
         cargo test --verbose --features "$FEATURES" &&
         cargo test --verbose --release --features "$FEATURES"
 
+  # Ensure the crate builds on ARM
   build_aarch64:
-    runs-on: ubuntu-latest
+    runs-on: macos-14
     strategy:
       matrix:
         rust: [1.56.0, stable, nightly]
+        features: ["+neon", "-neon"]
+    env:
+      RUSTFLAGS: "-C target-feature=${{matrix.features}}"
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
       with:
-        target: aarch64-unknown-linux-gnu
+        target: aarch64-apple-darwin
         toolchain: ${{ matrix.rust }}
     - name: Tests (aarch64)
-      run: cargo check --target aarch64-unknown-linux-gnu
-
-  # Use clippy to lint for code smells
-  clippy:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # Run Clippy only on stable
-        rust: [stable]
-
-    steps:
-    - uses: actions/checkout@v4
-    - uses: dtolnay/rust-toolchain@stable
-      with:
-        toolchain: ${{ matrix.rust }}
-        components: clippy
-    - name: Run Clippy
       run: |
-        cargo clippy
+        cargo clippy -D warnings &&
+        cargo test -v --no-default-features --tests --lib &&
+        cargo build --verbose --features "$FEATURES" &&
+        cargo test --verbose --features "$FEATURES" &&
+        cargo test --verbose --release --features "$FEATURES"
 
   # Enforce rustfmt formatting
   formatting:
