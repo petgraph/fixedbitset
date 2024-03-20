@@ -803,12 +803,7 @@ impl<'a> Iterator for Difference<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        for nxt in self.iter.by_ref() {
-            if !self.other.contains(nxt) {
-                return Some(nxt);
-            }
-        }
-        None
+        self.iter.by_ref().find(|&nxt| !self.other.contains(nxt))
     }
 
     #[inline]
