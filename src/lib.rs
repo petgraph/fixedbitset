@@ -126,6 +126,7 @@ impl FixedBitSet {
     }
 
     /// Grow capacity to **bits**, all new bits initialized to zero
+    #[inline]
     pub fn grow(&mut self, bits: usize) {
         let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
@@ -143,20 +144,24 @@ impl FixedBitSet {
         }
     }
 
+    #[inline]
     unsafe fn get_unchecked(&self, subblock: usize) -> &Block {
         &*self.data.as_ptr().cast::<Block>().add(subblock)
     }
 
+    #[inline]
     unsafe fn get_unchecked_mut(&mut self, subblock: usize) -> &mut Block {
         &mut *self.data.as_ptr().cast::<Block>().add(subblock)
     }
 
+    #[inline]
     fn usize_len(&self) -> usize {
         let (mut blocks, rem) = div_rem(self.length, BITS);
         blocks += (rem > 0) as usize;
         blocks
     }
 
+    #[inline]
     fn simd_block_len(&self) -> usize {
         let (mut blocks, rem) = div_rem(self.length, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
