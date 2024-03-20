@@ -802,7 +802,6 @@ impl<'a> Iterator for Difference<'a> {
     type Item = usize;
 
     #[inline]
-    #[allow(clippy::manual_find)]
     fn next(&mut self) -> Option<Self::Item> {
         for nxt in self.iter.by_ref() {
             if !self.other.contains(nxt) {
@@ -872,7 +871,6 @@ impl<'a> Iterator for Intersection<'a> {
     type Item = usize; // the bit position of the '1'
 
     #[inline]
-    #[allow(clippy::manual_find)]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.by_ref().find(|&nxt| self.other.contains(nxt))
     }

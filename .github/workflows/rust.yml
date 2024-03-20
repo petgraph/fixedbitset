@@ -16,10 +16,34 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [1.56.0, stable, nightly]
+        rust: [stable, nightly]
         features: ["+avx2", "+sse2"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        target: x86_64-unknown-linux-gnu
+        toolchain: ${{ matrix.rust }}
+        components: clippy
+    - name: Tests (x86_64)
+      run: |
+        cargo clippy &&
+        cargo test -v --no-default-features --tests --lib &&
+        cargo build --verbose --features "$FEATURES" &&
+        cargo test --verbose --features "$FEATURES" &&
+        cargo test --verbose --release --features "$FEATURES"
+
+  # Ensure the crate builds on x86
+  build_MSRV:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [1.56.0]
+        features: ["+avx2", "+sse2"]
+    env:
+      RUSTFLAGS: "-C target-feature=${{matrix.features}}"
     steps:
     - uses: actions/checkout@v4
     - uses: dtolnay/rust-toolchain@stable
@@ -40,7 +64,7 @@ jobs:
     runs-on: macos-14
     strategy:
       matrix:
-        rust: [1.56.0, stable, nightly]
+        rust: [stable, nightly]
         features: ["+neon", "-neon"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
