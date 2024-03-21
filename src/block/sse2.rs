@@ -19,7 +19,7 @@ impl Block {
         }
         #[cfg(target_feature = "sse4.1")]
         {
-            unsafe { _mm_test_all_zeros(self.0, Self::ALL.0) == 1 }
+            unsafe { _mm_test_all_zeros(self.0, self.0) == 1 }
         }
     }
 

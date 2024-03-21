@@ -11,7 +11,7 @@ pub struct Block(pub(super) __m256d);
 impl Block {
     #[inline]
     pub fn is_empty(self) -> bool {
-        unsafe { _mm256_testz_pd(self.0, Self::ALL.0) == 1 }
+        unsafe { _mm256_testz_pd(self.0, self.0) == 1 }
     }
 
     #[inline]
@@ -81,8 +81,8 @@ impl PartialEq for Block {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         unsafe {
-            let neq = _mm256_xor_pd(self.0, other.0);
-            _mm256_testz_pd(neq, neq) == 1
+            let eq = _mm256_cmpeq_pd(self.0, other.0);
+            _mm256_movemask_pd(eq) == !(0i32)
         }
     }
 }
