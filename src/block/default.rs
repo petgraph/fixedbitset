@@ -2,26 +2,9 @@ use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, 
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[repr(transparent)]
-pub struct Block(usize);
+pub struct Block(pub(super) usize);
 
 impl Block {
-    pub const USIZE_COUNT: usize = 1;
-    pub const NONE: Self = Block(0);
-    #[allow(dead_code)]
-    pub const ALL: Self = Block(!0);
-    pub const BITS: usize = core::mem::size_of::<Self>() * 8;
-
-    #[inline]
-    pub fn into_usize_array(self) -> [usize; Self::USIZE_COUNT] {
-        [self.0]
-    }
-
-    #[inline]
-    #[allow(dead_code)]
-    pub const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
-        Self(array[0])
-    }
-
     #[inline]
     pub const fn is_empty(self) -> bool {
         self.0 == Self::NONE.0

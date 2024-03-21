@@ -6,24 +6,9 @@ use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, 
 
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
-pub struct Block(__m256i);
+pub struct Block(pub(super) __m256i);
 
 impl Block {
-    pub const USIZE_COUNT: usize = core::mem::size_of::<Self>() / core::mem::size_of::<usize>();
-    pub const NONE: Self = Self::from_usize_array([0; Self::USIZE_COUNT]);
-    pub const ALL: Self = Self::from_usize_array([core::usize::MAX; Self::USIZE_COUNT]);
-    pub const BITS: usize = core::mem::size_of::<Self>() * 8;
-
-    #[inline]
-    pub fn into_usize_array(self) -> [usize; Self::USIZE_COUNT] {
-        unsafe { core::mem::transmute(self.0) }
-    }
-
-    #[inline]
-    pub const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
-        Self(unsafe { core::mem::transmute(array) })
-    }
-
     #[inline]
     pub fn is_empty(self) -> bool {
         unsafe { _mm256_testz_si256(self.0, self.0) == 1 }
@@ -96,8 +81,8 @@ impl PartialEq for Block {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         unsafe {
-            let eq = _mm256_cmpeq_epi8(self.0, other.0);
-            _mm256_movemask_epi8(eq) == !(0i32)
+            let neq = _mm256_xor_si256(self.0, other.0);
+            _mm256_testz_si256(neq, neq) == 1
         }
     }
 }
