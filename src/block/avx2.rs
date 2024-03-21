@@ -81,8 +81,8 @@ impl PartialEq for Block {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         unsafe {
-            let eq = _mm256_cmpeq_si256(self.0, other.0);
-            _mm256_movemask_si256(eq) == !(0i32)
+            let neq = _mm256_xor_si256(self.0, other.0);
+            _mm256_testz_si256(neq, neq) == 1
         }
     }
 }
