@@ -11,7 +11,7 @@ pub struct Block(pub(super) __m256i);
 impl Block {
     #[inline]
     pub fn is_empty(self) -> bool {
-        unsafe { _mm256_testz_si256(self.0, self.0) == 1 }
+        unsafe { _mm256_testz_si256(self.0, Self::ALL.0) == 1 }
     }
 
     #[inline]
