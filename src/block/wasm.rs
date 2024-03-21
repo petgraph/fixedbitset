@@ -8,24 +8,9 @@ use core::{
 
 #[derive(Copy, Clone, Debug)]
 #[repr(transparent)]
-pub struct Block(v128);
+pub struct Block(pub(super) v128);
 
 impl Block {
-    pub const USIZE_COUNT: usize = core::mem::size_of::<Self>() / core::mem::size_of::<usize>();
-    pub const NONE: Self = Self::from_usize_array([0; Self::USIZE_COUNT]);
-    pub const ALL: Self = Self::from_usize_array([core::usize::MAX; Self::USIZE_COUNT]);
-    pub const BITS: usize = core::mem::size_of::<Self>() * 8;
-
-    #[inline]
-    pub fn into_usize_array(self) -> [usize; Self::USIZE_COUNT] {
-        unsafe { core::mem::transmute(self.0) }
-    }
-
-    #[inline]
-    pub const fn from_usize_array(array: [usize; Self::USIZE_COUNT]) -> Self {
-        Self(unsafe { core::mem::transmute(array) })
-    }
-
     #[inline]
     pub fn is_empty(self) -> bool {
         !v128_any_true(self.0)
@@ -33,7 +18,7 @@ impl Block {
 
     #[inline]
     pub fn andnot(self, other: Self) -> Self {
-        Self(unsafe { v128_andnot(self.0, other.0) })
+        Self(v128_andnot(self.0, other.0))
     }
 }
 
