@@ -60,7 +60,7 @@ pub use self::avx2::*;
 
 #[cfg(all(target_family = "wasm", target_feature = "simd128"))]
 mod wasm;
-#[cfg(all(target_arch = "wasm", target_feature = "simd128"))]
+#[cfg(all(target_family = "wasm", target_feature = "simd128"))]
 pub use self::wasm::*;
 
 impl Block {
