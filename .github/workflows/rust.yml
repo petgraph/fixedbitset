@@ -122,13 +122,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: wasm32-unknown-unknown
       - name: Install
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - run: cat .github/Cargo.toml.wasm_ci >> Cargo.toml
-      - run: cargo test
       - run: wasm-pack test --headless --chrome
       - run: wasm-pack test --headless --firefox
 
