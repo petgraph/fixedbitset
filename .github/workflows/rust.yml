@@ -120,6 +120,11 @@ jobs:
 
   build-wasm:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: ["+simd128", "-simd128"]
+    env:
+      RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
     steps:
       - uses: actions/checkout@v4
       - name: Install
