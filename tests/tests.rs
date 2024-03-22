@@ -175,6 +175,94 @@ fn count_ones() {
     assert_eq!(fb.count_ones(8..), 8);
 }
 
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn count_zeroes() {
+    let mut fb = FixedBitSet::with_capacity(100);
+    fb.set(11, true);
+    fb.set(12, true);
+    fb.set(7, true);
+    fb.set(35, true);
+    fb.set(40, true);
+    fb.set(77, true);
+    fb.set(95, true);
+    fb.set(50, true);
+    fb.set(99, true);
+    assert_eq!(fb.count_zeroes(..7), 7);
+    assert_eq!(fb.count_zeroes(..8), 7);
+    assert_eq!(fb.count_zeroes(..11), 10);
+    assert_eq!(fb.count_zeroes(..12), 10);
+    assert_eq!(fb.count_zeroes(..13), 10);
+    assert_eq!(fb.count_zeroes(..35), 32);
+    assert_eq!(fb.count_zeroes(..36), 32);
+    assert_eq!(fb.count_zeroes(..40), 36);
+    assert_eq!(fb.count_zeroes(..41), 36);
+    assert_eq!(fb.count_zeroes(50..), 46);
+    assert_eq!(fb.count_zeroes(70..95), 24);
+    assert_eq!(fb.count_zeroes(70..96), 24);
+    assert_eq!(fb.count_zeroes(70..99), 27);
+    assert_eq!(fb.count_zeroes(..), 91);
+    assert_eq!(fb.count_zeroes(0..100), 91);
+    assert_eq!(fb.count_zeroes(0..0), 0);
+    assert_eq!(fb.count_zeroes(100..100), 0);
+    assert_eq!(fb.count_zeroes(7..), 84);
+    assert_eq!(fb.count_zeroes(8..), 84);
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn minimum() {
+    let mut fb = FixedBitSet::with_capacity(100);
+    assert_eq!(fb.minimum(), None);
+    fb.set(95, true);
+    assert_eq!(fb.minimum(), Some(95));
+    fb.set(77, true);
+    assert_eq!(fb.minimum(), Some(77));
+    fb.set(12, true);
+    assert_eq!(fb.minimum(), Some(12));
+    fb.set(40, true);
+    assert_eq!(fb.minimum(), Some(12));
+    fb.set(35, true);
+    assert_eq!(fb.minimum(), Some(12));
+    fb.set(11, true);
+    assert_eq!(fb.minimum(), Some(11));
+    fb.set(7, true);
+    assert_eq!(fb.minimum(), Some(7));
+    fb.set(50, true);
+    assert_eq!(fb.minimum(), Some(7));
+    fb.set(99, true);
+    assert_eq!(fb.minimum(), Some(7));
+    fb.clear();
+    assert_eq!(fb.minimum(), None);
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn maximum() {
+    let mut fb = FixedBitSet::with_capacity(100);
+    assert_eq!(fb.maximum(), None);
+    fb.set(11, true);
+    assert_eq!(fb.maximum(), Some(11));
+    fb.set(12, true);
+    assert_eq!(fb.maximum(), Some(12));
+    fb.set(7, true);
+    assert_eq!(fb.maximum(), Some(12));
+    fb.set(40, true);
+    assert_eq!(fb.maximum(), Some(40));
+    fb.set(35, true);
+    assert_eq!(fb.maximum(), Some(40));
+    fb.set(95, true);
+    assert_eq!(fb.maximum(), Some(95));
+    fb.set(50, true);
+    assert_eq!(fb.maximum(), Some(95));
+    fb.set(77, true);
+    assert_eq!(fb.maximum(), Some(95));
+    fb.set(99, true);
+    assert_eq!(fb.maximum(), Some(99));
+    fb.clear();
+    assert_eq!(fb.maximum(), None);
+}
+
 /* Helper for testing double ended iterator */
 #[cfg(test)]
 struct Alternating<I> {
@@ -397,6 +485,54 @@ fn insert_range() {
     assert!(!fb.contains(97));
     assert!(!fb.contains(127));
     assert!(!fb.contains(128));
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn contains_all_in_range() {
+    let mut fb = FixedBitSet::with_capacity(48);
+    fb.insert_range(..);
+
+    fb.remove_range(..32);
+    fb.remove_range(37..);
+
+    assert!(fb.contains_all_in_range(32..37));
+    assert!(fb.contains_all_in_range(32..35));
+    assert!(!fb.contains_all_in_range(32..));
+    assert!(!fb.contains_all_in_range(..37));
+    assert!(!fb.contains_all_in_range(..));
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn contains_any_in_range() {
+    let mut fb = FixedBitSet::with_capacity(48);
+    fb.insert_range(..);
+
+    fb.remove_range(..32);
+    fb.remove_range(37..);
+
+    assert!(!fb.contains_any_in_range(..32));
+    assert!(fb.contains_any_in_range(32..37));
+    assert!(fb.contains_any_in_range(32..35));
+    assert!(fb.contains_any_in_range(32..));
+    assert!(fb.contains_any_in_range(..37));
+    assert!(!fb.contains_any_in_range(37..));
+    assert!(fb.contains_any_in_range(..));
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn remove_range() {
+    let mut fb = FixedBitSet::with_capacity(48);
+    fb.insert_range(..);
+
+    fb.remove_range(..32);
+    fb.remove_range(37..);
+
+    for i in 0..48 {
+        assert_eq!(fb.contains(i), 32 <= i && i < 37);
+    }
 }
 
 #[test]
@@ -1090,8 +1226,8 @@ fn display_trait() {
 
 // TODO: Rewite this test to be platform agnostic.
 #[test]
-#[cfg(all(feature = "serde", target_pointer_width = "64"))]
 #[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+#[cfg(all(feature = "serde", target_pointer_width = "64"))]
 fn test_serialize() {
     let mut fb = FixedBitSet::with_capacity(10);
     fb.put(2);
@@ -1121,4 +1257,28 @@ fn test_is_clear() {
     fb.put(17);
     fb.put(19);
     assert!(!fb.is_clear());
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn test_is_full() {
+    let mut fb = FixedBitSet::with_capacity(0);
+    assert!(fb.is_full());
+
+    fb.grow(1);
+    assert!(!fb.is_full());
+
+    fb.put(0);
+    assert!(fb.is_full());
+
+    fb.grow(42);
+    fb.clear();
+    assert!(!fb.is_full());
+
+    fb.put(17);
+    fb.put(19);
+    assert!(!fb.is_full());
+
+    fb.insert_range(..);
+    assert!(fb.is_full());
 }
