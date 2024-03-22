@@ -10,12 +10,16 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
--   0.5.5
+-   0.5.6
+    - Fixed FixedBitset not implementing Send/Sync due to the stack size shrink.
+-   0.5.5 (yanked)
     - [#116](https://github.com/petgraph/fixedbitset/pull/116): Add functions for counting the results of a set operation (`union_count`, 
        `intersection_count`, `difference_count`, `symmetric_difference_count`) by @james7132.
     - [#118](https://github.com/petgraph/fixedbitset/pull/118): Shrink the stack size of FixedBitset. There should be zero stack size overhead
       compared to a Vec.
     - [#119](https://github.com/petgraph/fixedbitset/pull/119): Fix builds for wasm32.
+    - [#120](https://github.com/petgraph/fixedbitset/pull/119): Add more utility functions that were previously missing from the public interface:
+       `contains_any_in_range`, `contains_all_in_range`, `minimum`, `maximum`, `is_full`, `count_zeroes`, and `remove_range`.
     - [#121](https://github.com/petgraph/fixedbitset/pull/121): Add support for SIMD acceleration for AVX builds.
 -   0.5.4
     - [#112](https://github.com/petgraph/fixedbitset/pull/112): Fix undefined behavior in IntoOnes and setup testing with MIRI by @SkiFire13
