@@ -120,14 +120,18 @@ jobs:
 
   build-wasm:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    strategy:
+      matrix:
+        features: ["+simd128", "-simd128"]
+    env:
+      RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          target: wasm32-unknown-unknown
-      - name: Check wasm
-        run: cargo check --target wasm32-unknown-unknown
+      - name: Install
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - run: cat .github/Cargo.toml.wasm_ci >> Cargo.toml
+      - run: wasm-pack test --headless --chrome
+      - run: wasm-pack test --headless --firefox
 
   miri:
     runs-on: ubuntu-latest
