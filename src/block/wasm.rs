@@ -1,8 +1,5 @@
 use core::{
     arch::wasm32::*,
-    cmp::Ordering,
-    hash::{Hash, Hasher},
-    iter::Iterator,
     ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not},
 };
 
