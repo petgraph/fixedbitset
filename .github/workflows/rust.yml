@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         rust: [stable, nightly]
-        features: ["+avx2", "+sse2"]
+        features: ["+avx2", "+avx", "+sse2,+sse4.1", "+sse2"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
     steps:

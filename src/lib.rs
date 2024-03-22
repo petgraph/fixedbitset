@@ -12,7 +12,7 @@
 //!  When SIMD is not available on the target, the crate will gracefully fallback to a default implementation.  It is intended to add support for other SIMD architectures
 //! once they appear in stable Rust.
 //!
-//! Currently only SSE2/AVX2 on x86/x86_64 and wasm32 SIMD are supported as this is what stable Rust supports.
+//! Currently only SSE2/AVX/AVX2 on x86/x86_64 and wasm32 SIMD are supported as this is what stable Rust supports.
 #![no_std]
 #![deny(clippy::undocumented_unsafe_blocks)]
 
