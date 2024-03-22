@@ -12,7 +12,7 @@ impl Block {
     #[inline]
     pub fn is_empty(self) -> bool {
         unsafe {
-            let value = core::mem::transmute(self);
+            let value = _mm256_castpd_si256(self.0);
             _mm256_testz_si256(value, value) == 1
         }
     }
@@ -85,7 +85,7 @@ impl PartialEq for Block {
     fn eq(&self, other: &Self) -> bool {
         unsafe {
             let new = _mm256_xor_pd(self.0, other.0);
-            let neq = core::mem::transmute(new);
+            let neq = _mm256_castpd_si256(new);
             _mm256_testz_si256(neq, neq) == 1
         }
     }
