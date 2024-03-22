@@ -76,6 +76,12 @@ pub struct FixedBitSet {
     pub(crate) length: usize,
 }
 
+// SAFETY: FixedBitset contains no thread-local state and can be safely sent between threads
+unsafe impl Send for FixedBitSet {}
+// SAFETY: FixedBitset does not provide simultaneous unsynchronized mutable access to the 
+// underlying buffer.
+unsafe impl Sync for FixedBitSet {}
+
 impl FixedBitSet {
     /// Create a new empty **FixedBitSet**.
     pub const fn new() -> Self {
