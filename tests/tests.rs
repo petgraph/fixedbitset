@@ -1284,3 +1284,30 @@ fn test_is_full() {
     fb.insert_range(..);
     assert!(fb.is_full());
 }
+
+#[test]
+fn clone() {
+    let mut fb = FixedBitSet::with_capacity(10000);
+    fb.set(11, true);
+    fb.set(12, true);
+    fb.set(7, true);
+    fb.set(35, true);
+    fb.set(40, true);
+    fb.set(77, true);
+    fb.set(95, true);
+    fb.set(50, true);
+    fb.set(99, true);
+
+    let fb_clone = fb.clone();
+    let mut fb_clone_from_smaller = FixedBitSet::with_capacity(1000000);
+    let mut fb_clone_from_same = FixedBitSet::with_capacity(10000);
+    let mut fb_clone_from_bigger = FixedBitSet::with_capacity(100);
+    fb_clone_from_smaller.clone_from(&fb);
+    fb_clone_from_same.clone_from(&fb);
+    fb_clone_from_bigger.clone_from(&fb);
+
+    assert_eq!(&fb, &fb_clone);
+    assert_eq!(&fb, &fb_clone_from_smaller);
+    assert_eq!(&fb, &fb_clone_from_same);
+    assert_eq!(&fb, &fb_clone_from_bigger);
+}
