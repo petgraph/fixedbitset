@@ -1,5 +1,8 @@
 #![allow(clippy::undocumented_unsafe_blocks)]
 #![allow(dead_code)]
+// TODO: Remove once the transmutes are fixed
+#![allow(unknown_lints)]
+#![allow(clippy::missing_transmute_annotations)]
 
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
@@ -66,7 +69,7 @@ pub use self::wasm::*;
 impl Block {
     pub const USIZE_COUNT: usize = core::mem::size_of::<Self>() / core::mem::size_of::<usize>();
     pub const NONE: Self = Self::from_usize_array([0; Self::USIZE_COUNT]);
-    pub const ALL: Self = Self::from_usize_array([core::usize::MAX; Self::USIZE_COUNT]);
+    pub const ALL: Self = Self::from_usize_array([usize::MAX; Self::USIZE_COUNT]);
     pub const BITS: usize = core::mem::size_of::<Self>() * 8;
 
     #[inline]

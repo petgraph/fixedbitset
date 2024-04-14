@@ -990,7 +990,7 @@ impl Hash for FixedBitSet {
 
 impl PartialEq for FixedBitSet {
     fn eq(&self, other: &Self) -> bool {
-        self.as_simd_slice().eq(other.as_simd_slice()) && self.length == other.length
+        self.length == other.length && self.as_simd_slice().eq(other.as_simd_slice())
     }
 }
 
@@ -1201,9 +1201,9 @@ impl Masks {
 
         Masks {
             first_block,
-            first_mask: usize::max_value() << first_rem,
+            first_mask: usize::MAX << first_rem,
             last_block,
-            last_mask: (usize::max_value() >> 1) >> (BITS - last_rem - 1),
+            last_mask: (usize::MAX >> 1) >> (BITS - last_rem - 1),
             // this is equivalent to `MAX >> (BITS - x)` with correct semantics when x == 0.
         }
     }
@@ -1405,6 +1405,31 @@ impl Clone for FixedBitSet {
     #[inline]
     fn clone(&self) -> Self {
         Self::from_blocks_and_len(Vec::from(self.as_simd_slice()), self.length)
+    }
+
+    #[inline]
+    fn clone_from(&mut self, source: &Self) {
+        {
+            let me = self.as_mut_simd_slice();
+            let them = source.as_simd_slice();
+            match me.len().cmp(&them.len()) {
+                Ordering::Greater => {
+                    let (head, tail) = me.split_at_mut(them.len());
+                    head.copy_from_slice(them);
+                    tail.fill(SimdBlock::NONE);
+                    self.length = source.length;
+                    return;
+                }
+                Ordering::Equal => {
+                    me.copy_from_slice(them);
+                    self.length = source.length;
+                    return;
+                }
+                // Self is smaller than the source, this requires allocation.
+                Ordering::Less => {}
+            }
+        }
+        *self = source.clone();
     }
 }
 
