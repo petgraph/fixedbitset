@@ -1456,7 +1456,7 @@ impl Clone for FixedBitSet {
                 tail.fill(MaybeUninit::new(SimdBlock::NONE));
             }
             Ordering::Equal => me.copy_from_slice(them),
-            // The grow_uninit above ensures that self is at least as large as source.
+            // The grow_inner above ensures that self is at least as large as source.
             // so this branch is unreachable.
             Ordering::Less => {}
         }
