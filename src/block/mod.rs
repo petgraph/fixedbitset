@@ -1,5 +1,7 @@
 #![allow(clippy::undocumented_unsafe_blocks)]
 #![allow(dead_code)]
+// TODO: Remove once the transmutes are fixed
+#![allow(unknown_lints)]
 #![allow(clippy::missing_transmute_annotations)]
 
 use core::cmp::Ordering;
