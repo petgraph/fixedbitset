@@ -34,6 +34,7 @@ use core::cmp::Ordering;
 use core::hash::Hash;
 use core::iter::{Chain, FusedIterator};
 use core::mem::ManuallyDrop;
+use core::mem::MaybeUninit;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
 use core::ptr::NonNull;
 pub use range::IndexRange;
@@ -70,7 +71,7 @@ fn vec_into_parts<T>(vec: Vec<T>) -> (NonNull<T>, usize, usize) {
 /// [0,1,0].
 #[derive(Debug, Eq)]
 pub struct FixedBitSet {
-    pub(crate) data: NonNull<SimdBlock>,
+    pub(crate) data: NonNull<MaybeUninit<SimdBlock>>,
     capacity: usize,
     /// length in bits
     pub(crate) length: usize,
@@ -104,7 +105,7 @@ impl FixedBitSet {
     fn from_blocks_and_len(data: Vec<SimdBlock>, length: usize) -> Self {
         let (data, capacity, _) = vec_into_parts(data);
         FixedBitSet {
-            data,
+            data: data.cast(),
             capacity,
             length,
         }
@@ -134,9 +135,24 @@ impl FixedBitSet {
     /// Grow capacity to **bits**, all new bits initialized to zero
     #[inline]
     pub fn grow(&mut self, bits: usize) {
-        if bits <= self.length {
-            return;
+        #[cold]
+        #[track_caller]
+        #[inline(never)]
+        fn do_grow(slf: &mut FixedBitSet, bits: usize) {
+            // SAFETY: The provided fill is initialized to NONE.
+            unsafe { slf.grow_inner(bits, MaybeUninit::new(SimdBlock::NONE)) };
         }
+
+        if bits > self.length {
+            do_grow(self, bits);
+        }
+    }
+
+    /// # Safety
+    /// If `fill` is uninitialized, the memory must not be accessed and must be immediately
+    /// written over
+    #[inline(always)]
+    unsafe fn grow_inner(&mut self, bits: usize, fill: MaybeUninit<SimdBlock>) {
         // SAFETY: The data pointer and capacity were created from a Vec initially. The block
         // len is identical to that of the original.
         let mut data = unsafe {
@@ -144,7 +160,7 @@ impl FixedBitSet {
         };
         let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
-        data.resize(blocks, SimdBlock::NONE);
+        data.resize(blocks, fill);
         let (data, capacity, _) = vec_into_parts(data);
         self.data = data;
         self.capacity = capacity;
@@ -184,11 +200,25 @@ impl FixedBitSet {
     fn as_simd_slice(&self) -> &[SimdBlock] {
         // SAFETY: The slice constructed is within bounds of the underlying allocation. This function
         // is called with a read-only borrow so no other write can happen as long as the returned borrow lives.
-        unsafe { core::slice::from_raw_parts(self.data.as_ptr(), self.simd_block_len()) }
+        unsafe { core::slice::from_raw_parts(self.data.as_ptr().cast(), self.simd_block_len()) }
     }
 
     #[inline]
     fn as_mut_simd_slice(&mut self) -> &mut [SimdBlock] {
+        // SAFETY: The slice constructed is within bounds of the underlying allocation. This function
+        // is called with a mutable borrow so no other read or write can happen as long as the returned borrow lives.
+        unsafe { core::slice::from_raw_parts_mut(self.data.as_ptr().cast(), self.simd_block_len()) }
+    }
+
+    #[inline]
+    fn as_simd_slice_uninit(&self) -> &[MaybeUninit<SimdBlock>] {
+        // SAFETY: The slice constructed is within bounds of the underlying allocation. This function
+        // is called with a read-only borrow so no other write can happen as long as the returned borrow lives.
+        unsafe { core::slice::from_raw_parts(self.data.as_ptr(), self.simd_block_len()) }
+    }
+
+    #[inline]
+    fn as_mut_simd_slice_uninit(&mut self) -> &mut [MaybeUninit<SimdBlock>] {
         // SAFETY: The slice constructed is within bounds of the underlying allocation. This function
         // is called with a mutable borrow so no other read or write can happen as long as the returned borrow lives.
         unsafe { core::slice::from_raw_parts_mut(self.data.as_ptr(), self.simd_block_len()) }
@@ -758,8 +788,12 @@ impl FixedBitSet {
         let slice = unsafe { core::slice::from_raw_parts(ptr, len) };
         // SAFETY: The data pointer and capacity were created from a Vec initially. The block
         // len is identical to that of the original.
-        let data = unsafe {
-            Vec::from_raw_parts(self.data.as_ptr(), self.simd_block_len(), self.capacity)
+        let data: Vec<SimdBlock> = unsafe {
+            Vec::from_raw_parts(
+                self.data.as_ptr().cast(),
+                self.simd_block_len(),
+                self.capacity,
+            )
         };
         let mut iter = slice.iter().copied();
 
@@ -1409,27 +1443,24 @@ impl Clone for FixedBitSet {
 
     #[inline]
     fn clone_from(&mut self, source: &Self) {
-        {
-            let me = self.as_mut_simd_slice();
-            let them = source.as_simd_slice();
-            match me.len().cmp(&them.len()) {
-                Ordering::Greater => {
-                    let (head, tail) = me.split_at_mut(them.len());
-                    head.copy_from_slice(them);
-                    tail.fill(SimdBlock::NONE);
-                    self.length = source.length;
-                    return;
-                }
-                Ordering::Equal => {
-                    me.copy_from_slice(them);
-                    self.length = source.length;
-                    return;
-                }
-                // Self is smaller than the source, this requires allocation.
-                Ordering::Less => {}
-            }
+        if self.length < source.length {
+            // SAFETY: `fill` is uninitialized, but is immediately initialized from `source`.
+            unsafe { self.grow_inner(source.length, MaybeUninit::uninit()) };
         }
-        *self = source.clone();
+        let me = self.as_mut_simd_slice_uninit();
+        let them = source.as_simd_slice_uninit();
+        match me.len().cmp(&them.len()) {
+            Ordering::Greater => {
+                let (head, tail) = me.split_at_mut(them.len());
+                head.copy_from_slice(them);
+                tail.fill(MaybeUninit::new(SimdBlock::NONE));
+            }
+            Ordering::Equal => me.copy_from_slice(them),
+            // The grow_uninit above ensures that self is at least as large as source.
+            // so this branch is unreachable.
+            Ordering::Less => {}
+        }
+        self.length = source.length;
     }
 }
 
