@@ -1201,9 +1201,9 @@ impl Masks {
 
         Masks {
             first_block,
-            first_mask: usize::max_value() << first_rem,
+            first_mask: usize::MAX << first_rem,
             last_block,
-            last_mask: (usize::max_value() >> 1) >> (BITS - last_rem - 1),
+            last_mask: (usize::MAX >> 1) >> (BITS - last_rem - 1),
             // this is equivalent to `MAX >> (BITS - x)` with correct semantics when x == 0.
         }
     }
