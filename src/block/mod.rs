@@ -1,6 +1,6 @@
 #![allow(clippy::undocumented_unsafe_blocks)]
 #![allow(dead_code)]
-#[allow(clippy::missing_transmute_annotations)]
+#![allow(clippy::missing_transmute_annotations)]
 
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
