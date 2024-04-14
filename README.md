@@ -10,6 +10,9 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
+-   0.5.7
+    - [#127](https://github.com/petgraph/fixedbitset/pull/127) and [#128](https://github.com/petgraph/fixedbitset/pull/128): Optimize `Clone::clone_from` to avoid
+      extra allocations and copies.
 -   0.5.6
     - Fixed FixedBitset not implementing Send/Sync due to the stack size shrink.
 -   0.5.5 (yanked)
