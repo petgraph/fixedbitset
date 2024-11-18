@@ -765,6 +765,45 @@ fn difference() {
         count, iterator_count,
         "intersection and intersection_count produce the same results"
     );
+
+    let a_len = 151;
+    let b_len = 83;
+    let a_start = 0;
+    let a_end = 134;
+    let b_start = 53;
+    let mut a = FixedBitSet::with_capacity(a_len);
+    let mut b = FixedBitSet::with_capacity(b_len);
+    a.set_range(a_start..a_end, true);
+    b.set_range(b_start..b_len, true);
+    let count = a.difference_count(&b);
+    let iterator_count = a.difference(&b).count();
+    let mut a_diff_b = a.difference(&b).collect::<FixedBitSet>();
+    for i in a_start..b_start {
+        assert!(a_diff_b.contains(i));
+    }
+    for i in b_start..b_len {
+        assert!(!a_diff_b.contains(i));
+    }
+    for i in b_len..a_end {
+        assert!(a_diff_b.contains(i));
+    }
+
+    a.difference_with(&b);
+    // difference + collect produces the same results but with a shorter length.
+    a_diff_b.grow(a.len());
+    assert_eq!(
+        a_diff_b, a,
+        "difference and difference_with produce the same results"
+    );
+    assert_eq!(
+        a_diff_b.count_ones(..),
+        count,
+        "difference and difference_count produce the same results"
+    );
+    assert_eq!(
+        count, iterator_count,
+        "intersection and intersection_count produce the same results"
+    );
 }
 
 #[test]
