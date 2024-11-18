@@ -2,7 +2,7 @@
 //!
 //! ### Crate features
 //!
-//! - `std` (default feature)  
+//! - `std` (default feature)
 //!   Disabling this feature disables using std and instead uses crate alloc.
 //!
 //! ### SIMD Acceleration
@@ -1285,6 +1285,7 @@ impl ExactSizeIterator for Masks {}
 /// An  iterator producing the indices of the set bit in a set.
 ///
 /// This struct is created by the [`FixedBitSet::ones`] method.
+#[derive(Clone)]
 pub struct Ones<'a> {
     bitset_front: usize,
     bitset_back: usize,
