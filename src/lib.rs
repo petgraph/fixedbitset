@@ -968,7 +968,7 @@ impl FixedBitSet {
                 .iter()
                 .zip(other.as_slice().iter())
                 .map(|(x, y)| (*x & !*y)),
-        )
+        ) + Self::batch_count_ones(self.as_slice().iter().skip(other.as_slice().len()).copied())
     }
 
     /// Computes how many bits would be set in the symmetric difference between two bitsets.
