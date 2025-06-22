@@ -14,7 +14,13 @@
 //!
 //! Currently only SSE2/AVX/AVX2 on x86/x86_64 and wasm32 SIMD are supported as this is what stable Rust supports.
 #![no_std]
+// TODO: Remove once MSRV supports undocumented_unsafe_blocks
+#![allow(unknown_lints)]
 #![deny(clippy::undocumented_unsafe_blocks)]
+// TODO our MSRV supports older versions of Cargo that do not know the following are unsafe:
+// - Vec::from_raw_parts
+// - get_unchecked_mut
+#![allow(unused_unsafe)]
 
 extern crate alloc;
 use alloc::{vec, vec::Vec};
@@ -390,10 +396,12 @@ impl FixedBitSet {
     /// Note: Also available with index syntax: `bitset[bit]`.
     #[inline]
     pub fn contains(&self, bit: usize) -> bool {
-        (bit < self.length)
+        if bit < self.length {
             // SAFETY: The above check ensures that the block and bit are within bounds.
-            .then(|| unsafe { self.contains_unchecked(bit) })
-            .unwrap_or(false)
+            unsafe { self.contains_unchecked(bit) }
+        } else {
+            false
+        }
     }
 
     /// Return **true** if the bit is enabled in the **FixedBitSet**,
@@ -750,7 +758,7 @@ impl FixedBitSet {
     ///
     /// Iterator element is the index of the `1` bit, type `usize`.
     #[inline]
-    pub fn ones(&self) -> Ones {
+    pub fn ones(&self) -> Ones<'_> {
         match self.as_slice().split_first() {
             Some((&first_block, rem)) => {
                 let (&last_block, rem) = rem.split_last().unwrap_or((&0, rem));
@@ -813,7 +821,7 @@ impl FixedBitSet {
     ///
     /// Iterator element is the index of the `0` bit, type `usize`.
     #[inline]
-    pub fn zeroes(&self) -> Zeroes {
+    pub fn zeroes(&self) -> Zeroes<'_> {
         match self.as_slice().split_first() {
             Some((&block, rem)) => Zeroes {
                 bitset: !block,
@@ -1618,7 +1626,7 @@ impl Iterator for IntoOnes {
 // Ones will continue to return None once it first returns None.
 impl FusedIterator for IntoOnes {}
 
-impl<'a> BitAnd for &'a FixedBitSet {
+impl BitAnd for &FixedBitSet {
     type Output = FixedBitSet;
     fn bitand(self, other: &FixedBitSet) -> FixedBitSet {
         let (short, long) = {
@@ -1649,7 +1657,7 @@ impl BitAndAssign<&Self> for FixedBitSet {
     }
 }
 
-impl<'a> BitOr for &'a FixedBitSet {
+impl BitOr for &FixedBitSet {
     type Output = FixedBitSet;
     fn bitor(self, other: &FixedBitSet) -> FixedBitSet {
         let (short, long) = {
@@ -1680,7 +1688,7 @@ impl BitOrAssign<&Self> for FixedBitSet {
     }
 }
 
-impl<'a> BitXor for &'a FixedBitSet {
+impl BitXor for &FixedBitSet {
     type Output = FixedBitSet;
     fn bitxor(self, other: &FixedBitSet) -> FixedBitSet {
         let (short, long) = {
