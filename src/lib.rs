@@ -46,15 +46,24 @@ use core::ptr::NonNull;
 pub use range::IndexRange;
 
 pub(crate) const BITS: usize = core::mem::size_of::<Block>() * 8;
+pub const BITS_LOG2: usize = usize::ilog2(BITS) as usize;
 #[cfg(feature = "serde")]
 pub(crate) const BYTES: usize = core::mem::size_of::<Block>();
 
 use block::Block as SimdBlock;
 pub type Block = usize;
 
+// #[inline]
+// fn div_rem(x: usize, mut denominator: usize, _bitslog2: usize) -> (usize, usize) {
+//     denominator = usize::pow(2, denominator as u32) ;
+//     (x / denominator, x % denominator)
+// }
+
 #[inline]
-fn div_rem(x: usize, denominator: usize) -> (usize, usize) {
-    (x / denominator, x % denominator)
+fn div_rem(x: usize, bits: usize, bitslog2: usize) -> (usize, usize) {
+    let block = x >> bitslog2;
+    let i = x - (block * bits);
+    (block, i)
 }
 
 fn vec_into_parts<T>(vec: Vec<T>) -> (NonNull<T>, usize, usize) {
@@ -102,7 +111,7 @@ impl FixedBitSet {
     /// Create a new **FixedBitSet** with a specific number of bits,
     /// all initially clear.
     pub fn with_capacity(bits: usize) -> Self {
-        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
+        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS, SimdBlock::BITS_LOG2);
         blocks += (rem > 0) as usize;
         Self::from_blocks_and_len(vec![SimdBlock::NONE; blocks], bits)
     }
@@ -164,7 +173,7 @@ impl FixedBitSet {
         let mut data = unsafe {
             Vec::from_raw_parts(self.data.as_ptr(), self.simd_block_len(), self.capacity)
         };
-        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
+        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS, SimdBlock::BITS_LOG2);
         blocks += (rem > 0) as usize;
         data.resize(blocks, fill);
         let (data, capacity, _) = vec_into_parts(data);
@@ -185,14 +194,14 @@ impl FixedBitSet {
 
     #[inline]
     fn usize_len(&self) -> usize {
-        let (mut blocks, rem) = div_rem(self.length, BITS);
+        let (mut blocks, rem) = div_rem(self.length, BITS, BITS_LOG2);
         blocks += (rem > 0) as usize;
         blocks
     }
 
     #[inline]
     fn simd_block_len(&self) -> usize {
-        let (mut blocks, rem) = div_rem(self.length, SimdBlock::BITS);
+        let (mut blocks, rem) = div_rem(self.length, SimdBlock::BITS, SimdBlock::BITS_LOG2);
         blocks += (rem > 0) as usize;
         blocks
     }
@@ -239,7 +248,7 @@ impl FixedBitSet {
     pub fn grow_and_insert(&mut self, bits: usize) {
         self.grow(bits + 1);
 
-        let (blocks, rem) = div_rem(bits, BITS);
+        let (blocks, rem) = div_rem(bits, BITS, BITS_LOG2);
         // SAFETY: The above grow ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(blocks) |= 1 << rem;
@@ -414,7 +423,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn contains_unchecked(&self, bit: usize) -> bool {
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit, BITS, BITS_LOG2);
         (self.get_unchecked(block) & (1 << i)) != 0
     }
 
@@ -449,7 +458,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn insert_unchecked(&mut self, bit: usize) {
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit, BITS, BITS_LOG2);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(block) |= 1 << i;
@@ -479,7 +488,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn remove_unchecked(&mut self, bit: usize) {
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit, BITS, BITS_LOG2);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(block) &= !(1 << i);
@@ -507,7 +516,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn put_unchecked(&mut self, bit: usize) -> bool {
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit, BITS, BITS_LOG2);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             let word = self.get_unchecked_mut(block);
@@ -540,7 +549,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn toggle_unchecked(&mut self, bit: usize) {
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit, BITS, BITS_LOG2);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         unsafe {
             *self.get_unchecked_mut(block) ^= 1 << i;
@@ -570,7 +579,7 @@ impl FixedBitSet {
     /// `bit` must be less than `self.len()`
     #[inline]
     pub unsafe fn set_unchecked(&mut self, bit: usize, enabled: bool) {
-        let (block, i) = div_rem(bit, BITS);
+        let (block, i) = div_rem(bit, BITS, BITS_LOG2);
         // SAFETY: The above assertion ensures that the block is inside the Vec's allocation.
         let elt = unsafe { self.get_unchecked_mut(block) };
         if enabled {
@@ -1238,8 +1247,8 @@ impl Masks {
             length
         );
 
-        let (first_block, first_rem) = div_rem(start, BITS);
-        let (last_block, last_rem) = div_rem(end, BITS);
+        let (first_block, first_rem) = div_rem(start, BITS, BITS_LOG2);
+        let (last_block, last_rem) = div_rem(end, BITS, BITS_LOG2);
 
         Masks {
             first_block,

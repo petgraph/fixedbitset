@@ -76,6 +76,7 @@ impl Block {
     pub const NONE: Self = Self::from_usize_array([0; Self::USIZE_COUNT]);
     pub const ALL: Self = Self::from_usize_array([usize::MAX; Self::USIZE_COUNT]);
     pub const BITS: usize = core::mem::size_of::<Self>() * 8;
+    pub const BITS_LOG2: usize = usize::ilog2(Self::BITS) as usize;
 
     #[inline]
     pub fn into_usize_array(self) -> [usize; Self::USIZE_COUNT] {
