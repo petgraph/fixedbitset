@@ -1350,3 +1350,99 @@ fn clone() {
     assert_eq!(&fb, &fb_clone_from_same);
     assert_eq!(&fb, &fb_clone_from_bigger);
 }
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn insert_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.insert(1);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn remove_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.remove(1);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn put_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.put(1);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn toggle_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.toggle(1);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn set_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.set(1, true);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn copy_bit_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.copy_bit(0, 1);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn count_zeroes_oob(){
+    let fb = FixedBitSet::with_capacity(1);
+    fb.count_zeroes(0..2);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn insert_range_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.insert_range(0..2);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn remove_range_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.remove_range(0..2);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn toggle_range_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.toggle_range(0..2);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn contains_all_in_range_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.contains_all_in_range(0..2);
+}
+
+#[should_panic]
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn contains_any_in_range_oob(){
+    let mut fb = FixedBitSet::with_capacity(1);
+    fb.contains_all_in_range(0..2);
+}

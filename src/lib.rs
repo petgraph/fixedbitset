@@ -433,7 +433,7 @@ impl FixedBitSet {
     pub fn insert(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "insert at index {} exceeds fixedbitset size {}",
+            "Cannot insert at index {}: out of bounds for fixedbitset size {}",
             bit,
             self.length
         );
@@ -463,7 +463,7 @@ impl FixedBitSet {
     pub fn remove(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "remove at index {} exceeds fixedbitset size {}",
+            "Cannot remove at index {}: out of bounds for fixedbitset size {}",
             bit,
             self.length
         );
@@ -493,7 +493,7 @@ impl FixedBitSet {
     pub fn put(&mut self, bit: usize) -> bool {
         assert!(
             bit < self.length,
-            "put at index {} exceeds fixedbitset size {}",
+            "Cannot put at index {}: out of bounds for fixedbitset size {}",
             bit,
             self.length
         );
@@ -524,7 +524,7 @@ impl FixedBitSet {
     pub fn toggle(&mut self, bit: usize) {
         assert!(
             bit < self.length,
-            "toggle at index {} exceeds fixedbitset size {}",
+            "Cannot toggle at index {}: out of bounds for fixedbitset size {}",
             bit,
             self.length
         );
@@ -554,7 +554,7 @@ impl FixedBitSet {
     pub fn set(&mut self, bit: usize, enabled: bool) {
         assert!(
             bit < self.length,
-            "set at index {} exceeds fixedbitset size {}",
+            "Cannot set at index {}: out of bounds for fixedbitset size {}",
             bit,
             self.length
         );
@@ -589,7 +589,7 @@ impl FixedBitSet {
     pub fn copy_bit(&mut self, from: usize, to: usize) {
         assert!(
             to < self.length,
-            "copy to index {} exceeds fixedbitset size {}",
+            "Cannot copy to index {}: out of bounds for fixedbitset size {}",
             to,
             self.length
         );
