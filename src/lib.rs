@@ -1404,9 +1404,9 @@ impl<'a> Iterator for Ones<'a> {
 // Ones will continue to return None once it first returns None.
 impl<'a> FusedIterator for Ones<'a> {}
 
-/// An  iterator producing the indices of the set bit in a set.
+/// An  iterator producing the indices of the unset bit in a set.
 ///
-/// This struct is created by the [`FixedBitSet::ones`] method.
+/// This struct is created by the [`FixedBitSet::zeroes`] method.
 pub struct Zeroes<'a> {
     bitset: usize,
     block_idx: usize,
