@@ -5,14 +5,25 @@ use crate::{Block, FixedBitSet, BYTES};
 #[cfg(not(feature = "allocator-api2"))]
 use alloc::{vec, vec::Vec};
 #[cfg(feature = "allocator-api2")]
+use allocator_api2::alloc::{Allocator, Global};
+#[cfg(feature = "allocator-api2")]
 use allocator_api2::{vec, vec::Vec};
+
+#[cfg(not(feature = "allocator-api2"))]
+pub trait Allocator {}
+#[cfg(not(feature = "allocator-api2"))]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Global;
+#[cfg(not(feature = "allocator-api2"))]
+impl Allocator for Global {}
+
 use core::{convert::TryFrom, fmt};
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 
-struct BitSetByteSerializer<'a>(&'a FixedBitSet);
+struct BitSetByteSerializer<'a, A: Allocator>(&'a FixedBitSet<A>);
 
-impl Serialize for FixedBitSet {
+impl<A: Allocator> Serialize for FixedBitSet<A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -24,7 +35,7 @@ impl Serialize for FixedBitSet {
     }
 }
 
-impl<'a> Serialize for BitSetByteSerializer<'a> {
+impl<'a, A: Allocator> Serialize for BitSetByteSerializer<'a, A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -39,7 +50,7 @@ impl<'a> Serialize for BitSetByteSerializer<'a> {
     }
 }
 
-impl<'de> Deserialize<'de> for FixedBitSet {
+impl<'de> Deserialize<'de> for FixedBitSet<Global> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
