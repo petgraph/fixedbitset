@@ -1524,10 +1524,45 @@ impl<'a> Iterator for Zeroes<'a> {
 // Zeroes will stop returning Some when exhausted.
 impl<'a> FusedIterator for Zeroes<'a> {}
 
+#[cfg(not(feature = "allocator-api2"))]
 impl Clone for FixedBitSet {
     #[inline]
     fn clone(&self) -> Self {
         Self::from_blocks_and_len(Vec::from(self.as_simd_slice()), self.length)
+    }
+
+    #[inline]
+    fn clone_from(&mut self, source: &Self) {
+        if self.length < source.length {
+            // SAFETY: `fill` is uninitialized, but is immediately initialized from `source`.
+            unsafe { self.grow_inner(source.length, MaybeUninit::uninit()) };
+        }
+        let me = self.as_mut_simd_slice_uninit();
+        let them = source.as_simd_slice_uninit();
+        match me.len().cmp(&them.len()) {
+            Ordering::Greater => {
+                let (head, tail) = me.split_at_mut(them.len());
+                head.copy_from_slice(them);
+                tail.fill(MaybeUninit::new(SimdBlock::NONE));
+            }
+            Ordering::Equal => me.copy_from_slice(them),
+            // The grow_inner above ensures that self is at least as large as source.
+            // so this branch is unreachable.
+            Ordering::Less => {}
+        }
+        self.length = source.length;
+    }
+}
+
+#[cfg(feature = "allocator-api2")]
+impl<A: Allocator + Clone> Clone for FixedBitSet<A> {
+    #[inline]
+    fn clone(&self) -> Self {
+        let slice = self.as_simd_slice();
+        let mut v = Vec::with_capacity_in(slice.len(), self.alloc.clone());
+        v.extend_from_slice(slice);
+
+        Self::from_blocks_and_len(v, self.length)
     }
 
     #[inline]
