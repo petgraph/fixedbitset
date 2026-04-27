@@ -1603,7 +1603,7 @@ impl<A: Allocator + Clone> Clone for FixedBitSet<A> {
 ///
 /// Note: bits outside the capacity are always disabled, and thus
 /// indexing a FixedBitSet will not panic.
-impl Index<usize> for FixedBitSet {
+impl<A: Allocator> Index<usize> for FixedBitSet<A> {
     type Output = bool;
 
     #[inline]
@@ -1617,7 +1617,7 @@ impl Index<usize> for FixedBitSet {
 }
 
 /// Sets the bit at index **i** to **true** for each item **i** in the input **src**.
-impl Extend<usize> for FixedBitSet {
+impl<A: Allocator> Extend<usize> for FixedBitSet<A> {
     fn extend<I: IntoIterator<Item = usize>>(&mut self, src: I) {
         let iter = src.into_iter();
         for i in iter {
