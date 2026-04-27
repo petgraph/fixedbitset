@@ -180,6 +180,16 @@ impl FixedBitSet<Global> {
 }
 
 impl<A: Allocator> FixedBitSet<A> {
+    #[cfg(feature = "allocator-api2")]
+    /// Create a new **FixedBitSet** with a specific number of bits,
+    /// all initially clear using specified allocator.
+    pub fn with_capacity_in(bits: usize, alloc: A) -> Self {
+        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
+        blocks += (rem > 0) as usize;
+        let v = allocator_api2::vec![in alloc; SimdBlock::NONE; blocks];
+        Self::from_blocks_and_len(v, bits)
+    }
+
     #[inline]
     #[cfg(feature = "allocator-api2")]
     fn from_blocks_and_len(data: Vec<SimdBlock, A>, length: usize) -> Self {
