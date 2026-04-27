@@ -2,7 +2,10 @@
 use core as std;
 
 use crate::{Block, FixedBitSet, BYTES};
-use alloc::vec::Vec;
+#[cfg(not(feature = "allocator-api2"))]
+use alloc::{vec, vec::Vec};
+#[cfg(feature = "allocator-api2")]
+use allocator_api2::{vec, vec::Vec};
 use core::{convert::TryFrom, fmt};
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::ser::{Serialize, SerializeStruct, Serializer};
