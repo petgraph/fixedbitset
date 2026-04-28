@@ -10,12 +10,7 @@ use allocator_api2::alloc::{Allocator, Global};
 use allocator_api2::{vec, vec::Vec};
 
 #[cfg(not(feature = "allocator-api2"))]
-pub trait Allocator {}
-#[cfg(not(feature = "allocator-api2"))]
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-pub struct Global;
-#[cfg(not(feature = "allocator-api2"))]
-impl Allocator for Global {}
+use crate::{Allocator, Global};
 
 use core::{convert::TryFrom, fmt};
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
