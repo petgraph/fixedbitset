@@ -22,8 +22,23 @@
 // - get_unchecked_mut
 #![allow(unused_unsafe)]
 
+#[cfg(not(feature = "allocator-api2"))]
 extern crate alloc;
+#[cfg(not(feature = "allocator-api2"))]
 use alloc::{vec, vec::Vec};
+
+#[cfg(feature = "allocator-api2")]
+use allocator_api2::alloc::{Allocator, Global};
+#[cfg(feature = "allocator-api2")]
+use allocator_api2::{vec, vec::Vec};
+
+#[cfg(not(feature = "allocator-api2"))]
+pub trait Allocator {}
+#[cfg(not(feature = "allocator-api2"))]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct Global;
+#[cfg(not(feature = "allocator-api2"))]
+impl Allocator for Global {}
 
 mod block;
 mod range;
@@ -39,6 +54,7 @@ use core::fmt::{Binary, Display, Error, Formatter};
 use core::cmp::Ordering;
 use core::hash::Hash;
 use core::iter::{Chain, FusedIterator};
+#[cfg(not(feature = "allocator-api2"))]
 use core::mem::ManuallyDrop;
 use core::mem::MaybeUninit;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Index};
@@ -57,13 +73,27 @@ fn div_rem(x: usize, denominator: usize) -> (usize, usize) {
     (x / denominator, x % denominator)
 }
 
-fn vec_into_parts<T>(vec: Vec<T>) -> (NonNull<T>, usize, usize) {
+#[cfg(feature = "allocator-api2")]
+fn vec_into_parts<T, A: Allocator>(vec: Vec<T, A>) -> (NonNull<T>, usize, usize, A) {
+    let (ptr, len, cap, alloc) = vec.into_raw_parts_with_alloc();
+    (
+        // SAFETY: A Vec's internal pointer is always non-null.
+        unsafe { NonNull::new_unchecked(ptr) },
+        cap,
+        len,
+        alloc,
+    )
+}
+
+#[cfg(not(feature = "allocator-api2"))]
+fn vec_into_parts<T>(vec: Vec<T>) -> (NonNull<T>, usize, usize, Global) {
     let mut vec = ManuallyDrop::new(vec);
     (
         // SAFETY: A Vec's internal pointer is always non-null.
         unsafe { NonNull::new_unchecked(vec.as_mut_ptr()) },
         vec.capacity(),
         vec.len(),
+        Global,
     )
 }
 
@@ -75,27 +105,33 @@ fn vec_into_parts<T>(vec: Vec<T>) -> (NonNull<T>, usize, usize) {
 ///
 /// Derived traits depend on both the zeros and ones, so [0,1] is not equal to
 /// [0,1,0].
-#[derive(Debug, Eq)]
-pub struct FixedBitSet {
+#[derive(Debug)]
+pub struct FixedBitSet<A: Allocator = Global> {
     pub(crate) data: NonNull<MaybeUninit<SimdBlock>>,
     capacity: usize,
     /// length in bits
     pub(crate) length: usize,
+    pub(crate) alloc: A,
+}
+
+impl Eq for FixedBitSet {
+
 }
 
 // SAFETY: FixedBitset contains no thread-local state and can be safely sent between threads
-unsafe impl Send for FixedBitSet {}
+unsafe impl<A: Allocator + Send> Send for FixedBitSet<A> {}
 // SAFETY: FixedBitset does not provide simultaneous unsynchronized mutable access to the
 // underlying buffer.
-unsafe impl Sync for FixedBitSet {}
+unsafe impl<A: Allocator + Sync> Sync for FixedBitSet<A> {}
 
-impl FixedBitSet {
+impl FixedBitSet<Global> {
     /// Create a new empty **FixedBitSet**.
     pub const fn new() -> Self {
         FixedBitSet {
             data: NonNull::dangling(),
             capacity: 0,
             length: 0,
+            alloc: Global,
         }
     }
 
@@ -105,16 +141,6 @@ impl FixedBitSet {
         let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
         Self::from_blocks_and_len(vec![SimdBlock::NONE; blocks], bits)
-    }
-
-    #[inline]
-    fn from_blocks_and_len(data: Vec<SimdBlock>, length: usize) -> Self {
-        let (data, capacity, _) = vec_into_parts(data);
-        FixedBitSet {
-            data: data.cast(),
-            capacity,
-            length,
-        }
     }
 
     /// Create a new **FixedBitSet** with a specific number of bits,
@@ -137,6 +163,44 @@ impl FixedBitSet {
         }
         bitset
     }
+}
+
+#[cfg(not(feature = "allocator-api2"))]
+impl FixedBitSet<Global> {
+    #[inline]
+    pub fn from_blocks_and_len(data: Vec<SimdBlock>, length: usize) -> Self {
+        let (data, capacity, _, alloc) = vec_into_parts(data);
+        FixedBitSet {
+            data: data.cast(),
+            capacity,
+            length,
+            alloc, // Here, alloc is Global, which matches Self (FixedBitSet<Global>)
+        }
+    }
+}
+
+impl<A: Allocator> FixedBitSet<A> {
+    #[cfg(feature = "allocator-api2")]
+    /// Create a new **FixedBitSet** with a specific number of bits,
+    /// all initially clear using specified allocator.
+    pub fn with_capacity_in(bits: usize, alloc: A) -> Self {
+        let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
+        blocks += (rem > 0) as usize;
+        let v = allocator_api2::vec![in alloc; SimdBlock::NONE; blocks];
+        Self::from_blocks_and_len(v, bits)
+    }
+
+    #[inline]
+    #[cfg(feature = "allocator-api2")]
+    fn from_blocks_and_len(data: Vec<SimdBlock, A>, length: usize) -> Self {
+        let (data, capacity, _, alloc) = vec_into_parts(data);
+        FixedBitSet {
+            data: data.cast(),
+            capacity,
+            length,
+            alloc,
+        }
+    }
 
     /// Grow capacity to **bits**, all new bits initialized to zero
     #[inline]
@@ -144,7 +208,7 @@ impl FixedBitSet {
         #[cold]
         #[track_caller]
         #[inline(never)]
-        fn do_grow(slf: &mut FixedBitSet, bits: usize) {
+        fn do_grow<A: Allocator>(slf: &mut FixedBitSet<A>, bits: usize) {
             // SAFETY: The provided fill is initialized to NONE.
             unsafe { slf.grow_inner(bits, MaybeUninit::new(SimdBlock::NONE)) };
         }
@@ -159,18 +223,44 @@ impl FixedBitSet {
     /// written over
     #[inline(always)]
     unsafe fn grow_inner(&mut self, bits: usize, fill: MaybeUninit<SimdBlock>) {
-        // SAFETY: The data pointer and capacity were created from a Vec initially. The block
-        // len is identical to that of the original.
-        let mut data = unsafe {
-            Vec::from_raw_parts(self.data.as_ptr(), self.simd_block_len(), self.capacity)
+        let ptr = self.data.as_ptr();
+        let len = self.simd_block_len();
+        let cap = self.capacity;
+
+        #[cfg(feature = "allocator-api2")]
+        let (mut data, _old_alloc) = {
+            let alloc = unsafe { core::ptr::read(&self.alloc) };
+            self.data = NonNull::dangling();
+            self.capacity = 0;
+            // Specify that this is an Option<A>
+            (unsafe { Vec::from_raw_parts_in(ptr, len, cap, alloc) }, None::<A>)
         };
+
+        #[cfg(not(feature = "allocator-api2"))]
+        let mut data = {
+            // In standard mode, we don't need to move 'alloc' out
+            // because it's usually a Global ZST.
+            self.data = NonNull::dangling();
+            self.capacity = 0;
+            unsafe { Vec::from_raw_parts(ptr, len, cap) }
+        };
+
         let (mut blocks, rem) = div_rem(bits, SimdBlock::BITS);
         blocks += (rem > 0) as usize;
         data.resize(blocks, fill);
-        let (data, capacity, _) = vec_into_parts(data);
+
+        let (data, capacity, _, _new_alloc) = vec_into_parts(data);
+
         self.data = data;
         self.capacity = capacity;
         self.length = bits;
+
+        #[cfg(feature = "allocator-api2")]
+        unsafe { core::ptr::write(&mut self.alloc, _new_alloc) };
+
+        // Note: If not(feature), we don't write to self.alloc because
+        // new_alloc is Global, and self.alloc is A. If A != Global, this fails.
+        // If A is always Global when the feature is off, this is redundant.
     }
 
     #[inline]
@@ -839,7 +929,7 @@ impl FixedBitSet {
     }
 
     /// Returns a lazy iterator over the intersection of two `FixedBitSet`s
-    pub fn intersection<'a>(&'a self, other: &'a FixedBitSet) -> Intersection<'a> {
+    pub fn intersection<'a>(&'a self, other: &'a FixedBitSet<A>) -> Intersection<'a, A> {
         Intersection {
             iter: self.ones(),
             other,
@@ -847,7 +937,7 @@ impl FixedBitSet {
     }
 
     /// Returns a lazy iterator over the union of two `FixedBitSet`s.
-    pub fn union<'a>(&'a self, other: &'a FixedBitSet) -> Union<'a> {
+    pub fn union<'a>(&'a self, other: &'a FixedBitSet<A>) -> Union<'a, A> {
         Union {
             iter: self.ones().chain(other.difference(self)),
         }
@@ -855,7 +945,7 @@ impl FixedBitSet {
 
     /// Returns a lazy iterator over the difference of two `FixedBitSet`s. The difference of `a`
     /// and `b` is the elements of `a` which are not in `b`.
-    pub fn difference<'a>(&'a self, other: &'a FixedBitSet) -> Difference<'a> {
+    pub fn difference<'a>(&'a self, other: &'a FixedBitSet<A>) -> Difference<'a, A> {
         Difference {
             iter: self.ones(),
             other,
@@ -864,7 +954,7 @@ impl FixedBitSet {
 
     /// Returns a lazy iterator over the symmetric difference of two `FixedBitSet`s.
     /// The symmetric difference of `a` and `b` is the elements of one, but not both, sets.
-    pub fn symmetric_difference<'a>(&'a self, other: &'a FixedBitSet) -> SymmetricDifference<'a> {
+    pub fn symmetric_difference<'a>(&'a self, other: &'a FixedBitSet<A>) -> SymmetricDifference<'a, A> {
         SymmetricDifference {
             iter: self.difference(other).chain(other.difference(self)),
         }
@@ -873,7 +963,7 @@ impl FixedBitSet {
     /// In-place union of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity may be increased to match `other`'s.
-    pub fn union_with(&mut self, other: &FixedBitSet) {
+    pub fn union_with<B: Allocator>(&mut self, other: &FixedBitSet<B>) {
         if other.len() >= self.len() {
             self.grow(other.len());
         }
@@ -886,7 +976,7 @@ impl FixedBitSet {
     /// In-place intersection of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity will remain the same as before.
-    pub fn intersect_with(&mut self, other: &FixedBitSet) {
+    pub fn intersect_with<B: Allocator>(&mut self, other: &FixedBitSet<B>) {
         let me = self.as_mut_simd_slice();
         let other = other.as_simd_slice();
         me.iter_mut().zip(other.iter()).for_each(|(x, y)| {
@@ -901,7 +991,7 @@ impl FixedBitSet {
     /// In-place difference of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity will remain the same as before.
-    pub fn difference_with(&mut self, other: &FixedBitSet) {
+    pub fn difference_with<B: Allocator>(&mut self, other: &FixedBitSet<B>) {
         self.as_mut_simd_slice()
             .iter_mut()
             .zip(other.as_simd_slice().iter())
@@ -920,7 +1010,7 @@ impl FixedBitSet {
     /// In-place symmetric difference of two `FixedBitSet`s.
     ///
     /// On calling this method, `self`'s capacity may be increased to match `other`'s.
-    pub fn symmetric_difference_with(&mut self, other: &FixedBitSet) {
+    pub fn symmetric_difference_with<B: Allocator>(&mut self, other: &FixedBitSet<B>) {
         if other.len() >= self.len() {
             self.grow(other.len());
         }
@@ -938,7 +1028,7 @@ impl FixedBitSet {
     /// other methods like using [`union_with`] followed by [`count_ones`], this
     /// does not mutate in place or require separate allocations.
     #[inline]
-    pub fn union_count(&self, other: &FixedBitSet) -> usize {
+    pub fn union_count<B: Allocator>(&self, other: &FixedBitSet<B>) -> usize {
         let me = self.as_slice();
         let other = other.as_slice();
         let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x | *y)));
@@ -955,7 +1045,7 @@ impl FixedBitSet {
     /// other methods like using [`intersect_with`] followed by [`count_ones`], this
     /// does not mutate in place or require separate allocations.
     #[inline]
-    pub fn intersection_count(&self, other: &FixedBitSet) -> usize {
+    pub fn intersection_count<B: Allocator>(&self, other: &FixedBitSet<B>) -> usize {
         Self::batch_count_ones(
             self.as_slice()
                 .iter()
@@ -970,7 +1060,7 @@ impl FixedBitSet {
     /// other methods like using [`difference_with`] followed by [`count_ones`], this
     /// does not mutate in place or require separate allocations.
     #[inline]
-    pub fn difference_count(&self, other: &FixedBitSet) -> usize {
+    pub fn difference_count<B: Allocator>(&self, other: &FixedBitSet<B>) -> usize {
         Self::batch_count_ones(
             self.as_slice()
                 .iter()
@@ -985,7 +1075,7 @@ impl FixedBitSet {
     /// other methods like using [`symmetric_difference_with`] followed by [`count_ones`], this
     /// does not mutate in place or require separate allocations.
     #[inline]
-    pub fn symmetric_difference_count(&self, other: &FixedBitSet) -> usize {
+    pub fn symmetric_difference_count<B: Allocator>(&self, other: &FixedBitSet<B>) -> usize {
         let me = self.as_slice();
         let other = other.as_slice();
         let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x ^ *y)));
@@ -998,7 +1088,7 @@ impl FixedBitSet {
 
     /// Returns `true` if `self` has no elements in common with `other`. This
     /// is equivalent to checking for an empty intersection.
-    pub fn is_disjoint(&self, other: &FixedBitSet) -> bool {
+    pub fn is_disjoint<B: Allocator>(&self, other: &FixedBitSet<B>) -> bool {
         self.as_simd_slice()
             .iter()
             .zip(other.as_simd_slice())
@@ -1007,7 +1097,7 @@ impl FixedBitSet {
 
     /// Returns `true` if the set is a subset of another, i.e. `other` contains
     /// at least all the values in `self`.
-    pub fn is_subset(&self, other: &FixedBitSet) -> bool {
+    pub fn is_subset<B: Allocator>(&self, other: &FixedBitSet<B>) -> bool {
         let me = self.as_simd_slice();
         let other = other.as_simd_slice();
         me.iter()
@@ -1018,7 +1108,7 @@ impl FixedBitSet {
 
     /// Returns `true` if the set is a superset of another, i.e. `self` contains
     /// at least all the values in `other`.
-    pub fn is_superset(&self, other: &FixedBitSet) -> bool {
+    pub fn is_superset<B: Allocator>(&self, other: &FixedBitSet<B>) -> bool {
         other.is_subset(self)
     }
 }
@@ -1056,7 +1146,7 @@ impl Default for FixedBitSet {
     }
 }
 
-impl Drop for FixedBitSet {
+impl<A: Allocator> Drop for FixedBitSet<A> {
     fn drop(&mut self) {
         // SAFETY: The data pointer and capacity were created from a Vec initially. The block
         // len is identical to that of the original.
@@ -1093,12 +1183,12 @@ impl Display for FixedBitSet {
 /// An iterator producing elements in the difference of two sets.
 ///
 /// This struct is created by the [`FixedBitSet::difference`] method.
-pub struct Difference<'a> {
+pub struct Difference<'a, A: Allocator> {
     iter: Ones<'a>,
-    other: &'a FixedBitSet,
+    other: &'a FixedBitSet<A>,
 }
 
-impl<'a> Iterator for Difference<'a> {
+impl<'a, A: Allocator> Iterator for Difference<'a, A> {
     type Item = usize;
 
     #[inline]
@@ -1112,7 +1202,7 @@ impl<'a> Iterator for Difference<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Difference<'a> {
+impl<'a, A: Allocator> DoubleEndedIterator for Difference<'a, A> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter
             .by_ref()
@@ -1122,16 +1212,16 @@ impl<'a> DoubleEndedIterator for Difference<'a> {
 }
 
 // Difference will continue to return None once it first returns None.
-impl<'a> FusedIterator for Difference<'a> {}
+impl<'a, A: Allocator> FusedIterator for Difference<'a, A> {}
 
 /// An iterator producing elements in the symmetric difference of two sets.
 ///
 /// This struct is created by the [`FixedBitSet::symmetric_difference`] method.
-pub struct SymmetricDifference<'a> {
-    iter: Chain<Difference<'a>, Difference<'a>>,
+pub struct SymmetricDifference<'a, A: Allocator> {
+    iter: Chain<Difference<'a, A>, Difference<'a, A>>,
 }
 
-impl<'a> Iterator for SymmetricDifference<'a> {
+impl<'a, A: Allocator> Iterator for SymmetricDifference<'a, A> {
     type Item = usize;
 
     #[inline]
@@ -1145,24 +1235,24 @@ impl<'a> Iterator for SymmetricDifference<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for SymmetricDifference<'a> {
+impl<'a, A: Allocator> DoubleEndedIterator for SymmetricDifference<'a, A> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back()
     }
 }
 
 // SymmetricDifference will continue to return None once it first returns None.
-impl<'a> FusedIterator for SymmetricDifference<'a> {}
+impl<'a, A: Allocator> FusedIterator for SymmetricDifference<'a, A> {}
 
 /// An iterator producing elements in the intersection of two sets.
 ///
 /// This struct is created by the [`FixedBitSet::intersection`] method.
-pub struct Intersection<'a> {
+pub struct Intersection<'a, A: Allocator> {
     iter: Ones<'a>,
-    other: &'a FixedBitSet,
+    other: &'a FixedBitSet<A>,
 }
 
-impl<'a> Iterator for Intersection<'a> {
+impl<'a, A: Allocator> Iterator for Intersection<'a, A> {
     type Item = usize; // the bit position of the '1'
 
     #[inline]
@@ -1176,7 +1266,7 @@ impl<'a> Iterator for Intersection<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Intersection<'a> {
+impl<'a, A: Allocator> DoubleEndedIterator for Intersection<'a, A> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter
             .by_ref()
@@ -1186,16 +1276,16 @@ impl<'a> DoubleEndedIterator for Intersection<'a> {
 }
 
 // Intersection will continue to return None once it first returns None.
-impl<'a> FusedIterator for Intersection<'a> {}
+impl<'a, A: Allocator> FusedIterator for Intersection<'a, A> {}
 
 /// An iterator producing elements in the union of two sets.
 ///
 /// This struct is created by the [`FixedBitSet::union`] method.
-pub struct Union<'a> {
-    iter: Chain<Ones<'a>, Difference<'a>>,
+pub struct Union<'a, A: Allocator> {
+    iter: Chain<Ones<'a>, Difference<'a, A>>,
 }
 
-impl<'a> Iterator for Union<'a> {
+impl<'a, A: Allocator> Iterator for Union<'a, A> {
     type Item = usize;
 
     #[inline]
@@ -1209,14 +1299,14 @@ impl<'a> Iterator for Union<'a> {
     }
 }
 
-impl<'a> DoubleEndedIterator for Union<'a> {
+impl<'a, A: Allocator> DoubleEndedIterator for Union<'a, A> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back()
     }
 }
 
 // Union will continue to return None once it first returns None.
-impl<'a> FusedIterator for Union<'a> {}
+impl<'a, A: Allocator> FusedIterator for Union<'a, A> {}
 
 struct Masks {
     first_block: usize,
@@ -1444,10 +1534,45 @@ impl<'a> Iterator for Zeroes<'a> {
 // Zeroes will stop returning Some when exhausted.
 impl<'a> FusedIterator for Zeroes<'a> {}
 
+#[cfg(not(feature = "allocator-api2"))]
 impl Clone for FixedBitSet {
     #[inline]
     fn clone(&self) -> Self {
         Self::from_blocks_and_len(Vec::from(self.as_simd_slice()), self.length)
+    }
+
+    #[inline]
+    fn clone_from(&mut self, source: &Self) {
+        if self.length < source.length {
+            // SAFETY: `fill` is uninitialized, but is immediately initialized from `source`.
+            unsafe { self.grow_inner(source.length, MaybeUninit::uninit()) };
+        }
+        let me = self.as_mut_simd_slice_uninit();
+        let them = source.as_simd_slice_uninit();
+        match me.len().cmp(&them.len()) {
+            Ordering::Greater => {
+                let (head, tail) = me.split_at_mut(them.len());
+                head.copy_from_slice(them);
+                tail.fill(MaybeUninit::new(SimdBlock::NONE));
+            }
+            Ordering::Equal => me.copy_from_slice(them),
+            // The grow_inner above ensures that self is at least as large as source.
+            // so this branch is unreachable.
+            Ordering::Less => {}
+        }
+        self.length = source.length;
+    }
+}
+
+#[cfg(feature = "allocator-api2")]
+impl<A: Allocator + Clone> Clone for FixedBitSet<A> {
+    #[inline]
+    fn clone(&self) -> Self {
+        let slice = self.as_simd_slice();
+        let mut v = Vec::with_capacity_in(slice.len(), self.alloc.clone());
+        v.extend_from_slice(slice);
+
+        Self::from_blocks_and_len(v, self.length)
     }
 
     #[inline]
@@ -1478,7 +1603,7 @@ impl Clone for FixedBitSet {
 ///
 /// Note: bits outside the capacity are always disabled, and thus
 /// indexing a FixedBitSet will not panic.
-impl Index<usize> for FixedBitSet {
+impl<A: Allocator> Index<usize> for FixedBitSet<A> {
     type Output = bool;
 
     #[inline]
@@ -1492,7 +1617,7 @@ impl Index<usize> for FixedBitSet {
 }
 
 /// Sets the bit at index **i** to **true** for each item **i** in the input **src**.
-impl Extend<usize> for FixedBitSet {
+impl<A: Allocator> Extend<usize> for FixedBitSet<A> {
     fn extend<I: IntoIterator<Item = usize>>(&mut self, src: I) {
         let iter = src.into_iter();
         for i in iter {
