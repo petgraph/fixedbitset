@@ -113,6 +113,15 @@ fn grow_and_insert() {
 }
 
 #[test]
+fn grow_and_insert_usize_max_overflows_and_writes_out_of_bounds() {
+    // Memory safety issue: `grow_and_insert` is a safe API, but in release builds it computes
+    // `bits + 1` without checking for overflow. Passing `usize::MAX` wraps the requested length
+    // to zero, so the subsequent unchecked block write uses a wildly out-of-bounds pointer.
+    let mut fb = FixedBitSet::new();
+    fb.grow_and_insert(usize::MAX);
+}
+
+#[test]
 #[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
 fn test_toggle() {
     let mut fb = FixedBitSet::with_capacity(16);

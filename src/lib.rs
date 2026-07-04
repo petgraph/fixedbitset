@@ -237,7 +237,7 @@ impl FixedBitSet {
     /// This is faster than calling `grow` then `insert` in succession.
     #[inline]
     pub fn grow_and_insert(&mut self, bits: usize) {
-        self.grow(bits + 1);
+        self.grow(bits.saturating_add(1));
 
         let (blocks, rem) = div_rem(bits, BITS);
         // SAFETY: The above grow ensures that the block is inside the Vec's allocation.
