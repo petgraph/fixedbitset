@@ -123,6 +123,99 @@ fn grow_and_insert_usize_max_overflows_and_writes_out_of_bounds() {
 
 #[test]
 #[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_with_capacity_empty() {
+    let fb = FixedBitSet::ones_with_capacity(0);
+    assert_eq!(fb.len(), 0);
+    assert!(fb.is_empty());
+    assert!(fb.is_clear());
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_with_capacity_small() {
+    let fb = FixedBitSet::ones_with_capacity(10);
+    assert_eq!(fb.len(), 10);
+    assert_eq!(fb.count_ones(..), 10);
+    assert!(fb.is_full());
+    for i in 0..10 {
+        assert!(fb.contains(i));
+    }
+    // Bits beyond capacity should not be accessible
+    assert!(!fb.contains(10));
+    assert!(!fb.contains(100));
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_with_capacity_block_boundary() {
+    // Test at exact block boundary (64 bits on 64-bit systems)
+    let fb = FixedBitSet::ones_with_capacity(BITS);
+    assert_eq!(fb.len(), BITS);
+    assert_eq!(fb.count_ones(..), BITS);
+    assert!(fb.is_full());
+    for i in 0..BITS {
+        assert!(fb.contains(i));
+    }
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_with_capacity_multiple_blocks() {
+    // Test with multiple blocks
+    let size = BITS * 3 + 17; // spans multiple blocks with remainder
+    let fb = FixedBitSet::ones_with_capacity(size);
+    assert_eq!(fb.len(), size);
+    assert_eq!(fb.count_ones(..), size);
+    assert!(fb.is_full());
+    for i in 0..size {
+        assert!(fb.contains(i));
+    }
+    assert!(!fb.contains(size));
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_with_capacity_large() {
+    let size = if cfg!(miri) { 1000 } else { 10000 };
+    let fb = FixedBitSet::ones_with_capacity(size);
+    assert_eq!(fb.len(), size);
+    assert_eq!(fb.count_ones(..), size);
+    assert!(fb.is_full());
+
+    // Spot check some bits
+    assert!(fb.contains(0));
+    assert!(fb.contains(size / 2));
+    assert!(fb.contains(size - 1));
+    assert!(!fb.contains(size));
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_with_capacity_ones_iter() {
+    let fb = FixedBitSet::ones_with_capacity(100);
+    let ones: Vec<_> = fb.ones().collect();
+    let expected: Vec<_> = (0..100).collect();
+    assert_eq!(ones, expected);
+
+    let ones_rev: Vec<_> = fb.ones().rev().collect();
+    let expected_rev: Vec<_> = (0..100).rev().collect();
+    assert_eq!(ones_rev, expected_rev);
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_with_capacity_equals_insert_range() {
+    // Ensure ones_with_capacity produces the same result as with_capacity + insert_range
+    for size in [0, 1, 10, BITS - 1, BITS, BITS + 1, BITS * 2, BITS * 3 + 17] {
+        let a = FixedBitSet::ones_with_capacity(size);
+        let mut b = FixedBitSet::with_capacity(size);
+        b.insert_range(..);
+        assert_eq!(a, b, "mismatch for size {}", size);
+    }
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
 fn test_toggle() {
     let mut fb = FixedBitSet::with_capacity(16);
     fb.toggle(1);

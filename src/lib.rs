@@ -122,7 +122,8 @@ impl FixedBitSet {
     ///
     /// If the blocks are not the exact size needed for the capacity
     /// they will be padded with zeros (if shorter) or truncated to
-    /// the capacity (if longer).
+    /// the capacity (if longer). Note that bits within the last block
+    /// that exceed the capacity are stored as provided.
     ///
     /// For example:
     /// ```
@@ -131,11 +132,75 @@ impl FixedBitSet {
     /// assert_eq!(format!("{:b}", bs), "0010");
     /// ```
     pub fn with_capacity_and_blocks<I: IntoIterator<Item = Block>>(bits: usize, blocks: I) -> Self {
-        let mut bitset = Self::with_capacity(bits);
-        for (subblock, value) in bitset.as_mut_slice().iter_mut().zip(blocks.into_iter()) {
-            *subblock = value;
+        if bits == 0 {
+            return Self::new();
         }
-        bitset
+
+        let (mut simd_block_cnt, rem) = div_rem(bits, SimdBlock::BITS);
+        simd_block_cnt += (rem > 0) as usize;
+
+        let (mut block_cnt, rem) = div_rem(bits, BITS);
+        block_cnt += (rem > 0) as usize;
+
+        // SAFETY: We use Vec::with_capacity() to obtain uninitialized memory, and
+        // initialize all of it before passing ownership to the returned FixedBitSet.
+        unsafe {
+            let mut vec = Vec::<SimdBlock>::with_capacity(simd_block_cnt);
+            let mut subblock = vec.as_mut_ptr().cast::<Block>();
+            let subblock_end = subblock.add(block_cnt);
+
+            // Copy as much as we can from blocks
+            for value in blocks {
+                subblock.write(value);
+                subblock = subblock.add(1);
+                if subblock == subblock_end {
+                    break;
+                }
+            }
+
+            // Zero out the remainder of the allocation that the iterator didn't reach.
+            let simd_block_end = vec.as_mut_ptr().add(simd_block_cnt).cast::<Block>();
+            core::ptr::write_bytes(
+                subblock,
+                0,
+                simd_block_end.offset_from(subblock) as usize,
+            );
+
+            let data = NonNull::new_unchecked(vec.as_mut_ptr()).cast();
+            let capacity = vec.capacity();
+            // FixedBitSet is taking over the ownership of vec's data
+            core::mem::forget(vec);
+            FixedBitSet {
+                data,
+                capacity,
+                length: bits,
+            }
+        }
+    }
+
+    /// Create a new **FixedBitSet** with a specific number of bits,
+    /// all initially set.
+    ///
+    /// For example:
+    /// ```
+    /// let bs = fixedbitset::FixedBitSet::ones_with_capacity(10);
+    /// assert_eq!(bs.count_ones(..), 10);
+    /// assert_eq!(bs.len(), 10);
+    /// ```
+    pub fn ones_with_capacity(bits: usize) -> Self {
+        if bits == 0 {
+            return Self::new();
+        }
+        let (mut block_cnt, rem) = div_rem(bits, BITS);
+        block_cnt += (rem > 0) as usize;
+        let last_block = if rem == 0 { !0 } else { (1usize << rem) - 1 };
+
+        Self::with_capacity_and_blocks(
+            bits,
+            core::iter::repeat(!0)
+                .take(block_cnt - 1)
+                .chain(core::iter::once(last_block)),
+        )
     }
 
     /// Grow capacity to **bits**, all new bits initialized to zero
@@ -941,7 +1006,7 @@ impl FixedBitSet {
     pub fn union_count(&self, other: &FixedBitSet) -> usize {
         let me = self.as_slice();
         let other = other.as_slice();
-        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x | *y)));
+        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| *x | *y));
         match other.len().cmp(&me.len()) {
             Ordering::Greater => count + Self::batch_count_ones(other[me.len()..].iter().copied()),
             Ordering::Less => count + Self::batch_count_ones(me[other.len()..].iter().copied()),
@@ -960,7 +1025,7 @@ impl FixedBitSet {
             self.as_slice()
                 .iter()
                 .zip(other.as_slice())
-                .map(|(x, y)| (*x & *y)),
+                .map(|(x, y)| *x & *y),
         )
     }
 
@@ -975,7 +1040,7 @@ impl FixedBitSet {
             self.as_slice()
                 .iter()
                 .zip(other.as_slice().iter())
-                .map(|(x, y)| (*x & !*y)),
+                .map(|(x, y)| *x & !*y),
         ) + Self::batch_count_ones(self.as_slice().iter().skip(other.as_slice().len()).copied())
     }
 
@@ -988,7 +1053,7 @@ impl FixedBitSet {
     pub fn symmetric_difference_count(&self, other: &FixedBitSet) -> usize {
         let me = self.as_slice();
         let other = other.as_slice();
-        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x ^ *y)));
+        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| *x ^ *y));
         match other.len().cmp(&me.len()) {
             Ordering::Greater => count + Self::batch_count_ones(other[me.len()..].iter().copied()),
             Ordering::Less => count + Self::batch_count_ones(me[other.len()..].iter().copied()),
