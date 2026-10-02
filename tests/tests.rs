@@ -1359,3 +1359,35 @@ fn clone() {
     assert_eq!(&fb, &fb_clone_from_same);
     assert_eq!(&fb, &fb_clone_from_bigger);
 }
+
+fn check_last_positive_bit_and_unset(unset: fn(&mut usize) -> usize) {
+    let mut value = 0;
+    assert_eq!(unset(&mut value), BITS);
+    assert_eq!(value, 0);
+
+    for bit in 0..BITS {
+        value = 1 << bit;
+        assert_eq!(unset(&mut value), bit);
+        assert_eq!(value, 0);
+    }
+
+    value = usize::MAX;
+    for bit in 0..BITS {
+        assert_eq!(unset(&mut value), bit);
+        assert_eq!(value.count_ones() as usize, BITS - bit - 1);
+    }
+    assert_eq!(unset(&mut value), BITS);
+    assert_eq!(value, 0);
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn ones_last_positive_bit_and_unset() {
+    check_last_positive_bit_and_unset(Ones::last_positive_bit_and_unset);
+}
+
+#[test]
+#[cfg_attr(target_family = "wasm", wasm_bindgen_test)]
+fn into_ones_last_positive_bit_and_unset() {
+    check_last_positive_bit_and_unset(IntoOnes::last_positive_bit_and_unset);
+}
