@@ -10,6 +10,9 @@ Please read the [API documentation here](https://docs.rs/fixedbitset/)
 
 # Recent Changes
 
+-   0.5.9
+    - [#143](https://github.com/petgraph/fixedbitset/pull/143): Fix subtraction overflow on zero input in `Ones::last_positive_bit_and_unset` and `IntoOnes::last_positive_bit_and_unset`. Both helpers now consistently return the block width and leave zero unchanged in debug and release builds.
+    - [#137](https://github.com/petgraph/fixedbitset/pull/137): Correct the `Zeroes` iterator documentation to describe unset bits and link to `FixedBitSet::zeroes`.
 -   0.5.8
     - [#142](https://github.com/petgraph/fixedbitset/pull/142) and [#147](https://github.com/petgraph/fixedbitset/pull/147): Fix an overflow soundness issue in `grow_and_insert`; passing `usize::MAX` now panics before allocating.
     - [#131](https://github.com/petgraph/fixedbitset/pull/131): Fix `difference_count` when the left-hand bitset is longer than the right-hand bitset.
