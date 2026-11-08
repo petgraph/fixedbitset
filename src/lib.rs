@@ -1307,6 +1307,9 @@ pub struct Ones<'a> {
 }
 
 impl<'a> Ones<'a> {
+    /// Clears the least significant set bit and returns its index.
+    ///
+    /// If `n` is zero, returns the number of bits in a block and leaves it unchanged.
     #[inline]
     pub fn last_positive_bit_and_unset(n: &mut usize) -> usize {
         // Find the last set bit using x & -x
@@ -1316,7 +1319,7 @@ impl<'a> Ones<'a> {
         let position = last_bit.trailing_zeros();
 
         // Unset the last set bit
-        *n &= *n - 1;
+        *n &= n.wrapping_sub(1);
 
         position as usize
     }
@@ -1529,6 +1532,9 @@ pub struct IntoOnes {
 }
 
 impl IntoOnes {
+    /// Clears the least significant set bit and returns its index.
+    ///
+    /// If `n` is zero, returns the number of bits in a block and leaves it unchanged.
     #[inline]
     pub fn last_positive_bit_and_unset(n: &mut Block) -> usize {
         // Find the last set bit using x & -x
@@ -1538,7 +1544,7 @@ impl IntoOnes {
         let position = last_bit.trailing_zeros();
 
         // Unset the last set bit
-        *n &= *n - 1;
+        *n &= n.wrapping_sub(1);
 
         position as usize
     }
