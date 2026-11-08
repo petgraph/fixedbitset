@@ -132,7 +132,7 @@ impl FixedBitSet {
     /// ```
     pub fn with_capacity_and_blocks<I: IntoIterator<Item = Block>>(bits: usize, blocks: I) -> Self {
         let mut bitset = Self::with_capacity(bits);
-        for (subblock, value) in bitset.as_mut_slice().iter_mut().zip(blocks.into_iter()) {
+        for (subblock, value) in bitset.as_mut_slice().iter_mut().zip(blocks) {
             *subblock = value;
         }
         bitset
@@ -945,7 +945,7 @@ impl FixedBitSet {
     pub fn union_count(&self, other: &FixedBitSet) -> usize {
         let me = self.as_slice();
         let other = other.as_slice();
-        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x | *y)));
+        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| *x | *y));
         match other.len().cmp(&me.len()) {
             Ordering::Greater => count + Self::batch_count_ones(other[me.len()..].iter().copied()),
             Ordering::Less => count + Self::batch_count_ones(me[other.len()..].iter().copied()),
@@ -964,7 +964,7 @@ impl FixedBitSet {
             self.as_slice()
                 .iter()
                 .zip(other.as_slice())
-                .map(|(x, y)| (*x & *y)),
+                .map(|(x, y)| *x & *y),
         )
     }
 
@@ -979,7 +979,7 @@ impl FixedBitSet {
             self.as_slice()
                 .iter()
                 .zip(other.as_slice().iter())
-                .map(|(x, y)| (*x & !*y)),
+                .map(|(x, y)| *x & !*y),
         ) + Self::batch_count_ones(self.as_slice().iter().skip(other.as_slice().len()).copied())
     }
 
@@ -992,7 +992,7 @@ impl FixedBitSet {
     pub fn symmetric_difference_count(&self, other: &FixedBitSet) -> usize {
         let me = self.as_slice();
         let other = other.as_slice();
-        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| (*x ^ *y)));
+        let count = Self::batch_count_ones(me.iter().zip(other.iter()).map(|(x, y)| *x ^ *y));
         match other.len().cmp(&me.len()) {
             Ordering::Greater => count + Self::batch_count_ones(other[me.len()..].iter().copied()),
             Ordering::Less => count + Self::batch_count_ones(me[other.len()..].iter().copied()),
