@@ -67,7 +67,8 @@ jobs:
     strategy:
       matrix:
         rust: [stable, nightly]
-        features: ["+neon", "-neon"]
+        # NEON is required by the aarch64 Apple ABI and cannot be disabled.
+        features: ["+neon"]
     env:
       RUSTFLAGS: "-C target-feature=${{matrix.features}} -D warnings"
     steps:
