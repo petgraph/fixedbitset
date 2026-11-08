@@ -17,12 +17,14 @@ categories = ["data-structures"]
 [features]
 std = []
 default = ["std"]
+allocator-api2 = ["dep:allocator-api2"]
 
 [package.metadata.release]
 no-dev-version = true
 tag-name = "{{version}}"
 
 [dependencies]
+allocator-api2 = { version = "0.2.18", optional = true, features = ["serde"] }
 serde = { version = "1.0", optional = true }
 
 [dev-dependencies]
