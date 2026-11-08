@@ -133,6 +133,22 @@ jobs:
       - run: wasm-pack test --headless --chrome
       - run: wasm-pack test --headless --firefox
 
+  check-wasm64:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        features: ["+simd128", "-simd128"]
+    env:
+      # No -D warnings: it would also apply to the std built from source.
+      RUSTFLAGS: "-C target-feature=${{matrix.features}}"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+          components: rust-src
+      - run: cargo check -Zbuild-std=std,panic_abort --target wasm64-unknown-unknown
+
   miri:
     runs-on: ubuntu-latest
     strategy:
