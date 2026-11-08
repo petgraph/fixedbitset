@@ -232,12 +232,16 @@ impl FixedBitSet {
 
     /// Grows the internal size of the bitset before inserting a bit
     ///
-    /// Unlike `insert`, this cannot panic, but may allocate if the bit is outside of the existing buffer's range.
+    /// Unlike `insert`, this grows the bitset if the bit is outside of the existing buffer's range.
     ///
     /// This is faster than calling `grow` then `insert` in succession.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `bits` is `usize::MAX`, because the required length cannot be represented.
     #[inline]
     pub fn grow_and_insert(&mut self, bits: usize) {
-        self.grow(bits.saturating_add(1));
+        self.grow(bits.checked_add(1).expect("bitset capacity overflow"));
 
         let (blocks, rem) = div_rem(bits, BITS);
         // SAFETY: The above grow ensures that the block is inside the Vec's allocation.
